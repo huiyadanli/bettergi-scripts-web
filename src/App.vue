@@ -1,28 +1,24 @@
 <template>
   <a-layout>
-    <a-layout-content :style="{ padding: '0 50px', marginTop: '20px' }">
+    <a-layout-content :style="{ padding: '20px 50px' }">
       <a-space direction="vertical" size="large" fill>
         <a-select
           v-model="selectedRepo"
-          placeholder="选择仓库"
+          placeholder="选择脚本仓库"
           style="width: 320px"
           @change="fetchRepoData"
         >
-          <a-option value="repo1">仓库 1</a-option>
-          <a-option value="repo2">仓库 2</a-option>
-          <a-option value="repo3">仓库 3</a-option>
+          <a-option value="https://raw.githubusercontent.com/babalae/bettergi-scripts-list/refs/heads/main/repo/items.json">BetterGI 中央仓库</a-option>
         </a-select>
 
         <a-tabs v-if="repoData.length">
           <a-tab-pane v-for="category in repoData" :key="category.type" :title="getTabTitle(category.type)">
             <a-table :columns="columns" :data="category.list" :pagination="{ pageSize: 20 }">
               <template #name="{ record }">
-                <a-typography-paragraph copyable>
                   {{ record.name }}
-                </a-typography-paragraph>
               </template>
               <template #tags="{ record }">
-                <a-space wrap>
+                <a-space>
                   <a-tag v-for="tag in record.tags" :key="tag" color="blue">{{ tag }}</a-tag>
                 </a-space>
               </template>
@@ -59,7 +55,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, onMounted } from 'vue';
 import { Message } from '@arco-design/web-vue';
 
 const selectedRepo = ref('');
@@ -91,8 +87,7 @@ const fetchRepoData = async () => {
   if (!selectedRepo.value) return;
   
   try {
-    // 这里替换为实际的 API 端点
-    const response = await fetch(`https://raw.githubusercontent.com/babalae/bettergi-scripts-list/refs/heads/main/repo/items.json`);
+    const response = await fetch(selectedRepo.value);
     const data = await response.json();
     repoData.value = data;
   } catch (error) {
@@ -100,6 +95,12 @@ const fetchRepoData = async () => {
     console.error('Error fetching repo data:', error);
   }
 };
+
+onMounted(() => {
+  // 默认选中第一个仓库
+  selectedRepo.value = 'https://raw.githubusercontent.com/babalae/bettergi-scripts-list/refs/heads/main/repo/items.json';
+  fetchRepoData();
+});
 
 const downloadScript = (script) => {
   // 实现下载逻辑
@@ -114,7 +115,7 @@ const showDetails = (script) => {
     { label: '版本', value: script.version },
     { label: '描述', value: script.description || '无描述' },
     { label: '路径', value: script.path },
-    { label: '标签', value: script.tags.join(', ') },
+    { label: '标签', value: script.tags },
     { label: 'Hash', value: script.hash },
   ];
   drawerVisible.value = true;
