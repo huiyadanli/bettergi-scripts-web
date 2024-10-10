@@ -8,38 +8,36 @@
           style="width: 320px"
           @change="fetchRepoData"
         >
-          <a-option value="https://raw.githubusercontent.com/babalae/bettergi-scripts-list/refs/heads/main/repo/items.json">BetterGI 中央仓库</a-option>
+          <a-option value="https://raw.githubusercontent.com/babalae/bettergi-scripts-list/refs/heads/main/build/tree.json">BetterGI 中央仓库</a-option>
         </a-select>
 
         <a-tabs v-if="repoData.length">
-          <a-tab-pane v-for="category in repoData" :key="category.type" :title="getTabTitle(category.type)">
+          <a-tab-pane v-for="category in repoData" :key="category.name" :title="getCategoryDisplayName(category.name)">
             <a-row :gutter="16">
               <a-col :span="6" v-if="showTree(category)">
                 <a-tree
                   :data="getCategoryTree(category)"
-                  @select="(selectedKeys) => handleTreeSelect(selectedKeys, category.type)"
-                  :selectedKeys="searchConditions[category.type].tags"
-                  multiple
+                  @select="(selectedKeys, event) => handleTreeSelect(selectedKeys, event, category.name)"
                 />
               </a-col>
               <a-col :span="showTree(category) ? 18 : 24">
                 <a-space direction="vertical" size="medium" style="width: 100%;">
                   <a-row :gutter="16">
                     <a-col :span="8">
-                      <a-input v-model="searchConditions[category.type].name" placeholder="搜索名称" allow-clear @change="filterData(category.type)" />
+                      <a-input v-model="searchConditions[category.name].name" placeholder="搜索名称" allow-clear @change="filterData(category.name)" />
                     </a-col>
                     <a-col :span="8">
-                      <a-select v-model="searchConditions[category.type].author" placeholder="选择作者" style="width: 100%;" allow-clear @change="filterData(category.type)">
-                        <a-option v-for="author in getUniqueAuthors(category.list)" :key="author" :value="author">{{ author }}</a-option>
+                      <a-select v-model="searchConditions[category.name].author" placeholder="选择作者" style="width: 100%;" allow-clear @change="filterData(category.name)">
+                        <a-option v-for="author in getUniqueAuthors(category)" :key="author" :value="author">{{ author }}</a-option>
                       </a-select>
                     </a-col>
                     <a-col :span="8">
-                      <a-select v-model="searchConditions[category.type].tags" placeholder="选择标签" style="width: 100%;" allow-clear @change="handleTagSelect(category.type)" multiple>
-                        <a-option v-for="tag in getUniqueTags(category.list)" :key="tag" :value="tag">{{ tag }}</a-option>
+                      <a-select v-model="searchConditions[category.name].tags" placeholder="选择标签" style="width: 100%;" allow-clear @change="handleTagSelect(category.name)" multiple>
+                        <a-option v-for="tag in getUniqueTags(category)" :key="tag" :value="tag">{{ tag }}</a-option>
                       </a-select>
                     </a-col>
                   </a-row>
-                  <a-table :columns="columns" :data="filteredData[category.type]" :pagination="{ pageSize: 20 }">
+                  <a-table :columns="columns" :data="filteredData[category.name]" :pagination="{ pageSize: 20 }">
                     <template #name="{ record }">
                       {{ record.name }}
                     </template>
@@ -102,30 +100,22 @@ const columns = [
   { title: '操作', slotName: 'operations' },
 ];
 
-const getTabTitle = (type) => {
-  const titles = {
-    js: 'JS脚本',
-    pathing: '地图追踪',
-    macro: '键鼠脚本',
-    combat: '战斗策略',
-    tcg: '七圣召唤策略',
-    onekey: '一键宏',
-  };
-  return titles[type] || type;
-};
-
 const fetchRepoData = async () => {
   if (!selectedRepo.value) return;
   
   try {
     const response = await fetch(selectedRepo.value);
     const data = await response.json();
+    
+    // 为所有节点生成 path
+    data.forEach(category => generatePaths(category));
+    
     repoData.value = data;
     initializeSearchConditions();
     
     // 初始化 tagColorMap
     data.forEach(category => {
-      category.list.forEach(item => {
+      traverseCategory(category, (item) => {
         if (Array.isArray(item.tags)) {
           item.tags.forEach(tag => {
             if (tag && typeof tag === 'string' && !tagColorMap[tag]) {
@@ -141,32 +131,82 @@ const fetchRepoData = async () => {
   }
 };
 
-const getUniqueAuthors = (list) => {
-  return [...new Set(list.map(item => item.author))];
+// 新增函数：为所有节点生成 path
+const generatePaths = (node, parentPath = '') => {
+  const currentPath = parentPath ? `${parentPath}/${node.name}` : node.name;
+  node.path = currentPath;
+  
+  if (node.type === 'directory' && Array.isArray(node.children)) {
+    node.children.forEach(child => generatePaths(child, currentPath));
+  }
 };
 
-const getUniqueTags = (list) => {
-  return [...new Set(list.flatMap(item => item.tags))];
+const traverseCategory = (category, callback) => {
+  if (category.type === 'file') {
+    callback(category);
+  } else if (category.type === 'directory' && Array.isArray(category.children)) {
+    if (category.name === 'js') {
+      category.children.forEach(child => {
+        if (child.type === 'directory') {
+          callback(child);
+        } else {
+          traverseCategory(child, callback);
+        }
+      });
+    } else {
+      category.children.forEach(child => traverseCategory(child, callback));
+    }
+  }
 };
 
-const filterData = (type) => {
-  const condition = searchConditions[type];
-  filteredData[type] = repoData.value.find(category => category.type === type).list.filter(item => {
+const getUniqueAuthors = (category) => {
+  const authors = new Set();
+  traverseCategory(category, (item) => {
+    if (item.author) authors.add(item.author);
+  });
+  return [...authors];
+};
+
+const getUniqueTags = (category) => {
+  const tags = new Set();
+  traverseCategory(category, (item) => {
+    if (Array.isArray(item.tags)) {
+      item.tags.forEach(tag => tags.add(tag));
+    }
+  });
+  return [...tags];
+};
+
+const filterData = (categoryName) => {
+  const category = repoData.value.find(cat => cat.name === categoryName);
+  const condition = searchConditions[categoryName];
+  
+  const filtered = [];
+  traverseCategory(category, (item) => {
     const nameMatch = !condition.name || item.name.toLowerCase().includes(condition.name.toLowerCase());
     const authorMatch = !condition.author || item.author === condition.author;
-    const tagMatch = condition.tags.length === 0 || condition.tags.some(tag => item.tags.includes(tag));
-    return nameMatch && authorMatch && tagMatch;
+    const tagMatch = condition.tags.length === 0 || (Array.isArray(item.tags) && condition.tags.some(tag => item.tags.includes(tag)));
+    const pathMatch = !condition.path || (item.path && item.path.startsWith(condition.path) && item.path !== condition.path);
+    if (nameMatch && authorMatch && tagMatch && pathMatch && (item.type === 'file' || (category.name === 'js' && item.type === 'directory'))) {
+      filtered.push(item);
+    }
   });
+  
+  filteredData[categoryName] = filtered;
 };
 
 const initializeSearchConditions = () => {
   repoData.value.forEach(category => {
-    searchConditions[category.type] = {
+    searchConditions[category.name] = {
       name: '',
       author: '',
-      tags: []
+      tags: [],
+      path: ''
     };
-    filteredData[category.type] = category.list;
+    filteredData[category.name] = [];
+    traverseCategory(category, (item) => {
+      filteredData[category.name].push(item);
+    });
   });
 };
 
@@ -190,10 +230,8 @@ const getTagColor = (tag) => {
 
 onMounted(() => {
   // 默认选中第一个仓库
-  selectedRepo.value = 'https://raw.githubusercontent.com/babalae/bettergi-scripts-list/refs/heads/main/repo/items.json';
-  fetchRepoData().then(() => {
-    initializeSearchConditions();
-  });
+  selectedRepo.value = 'https://raw.githubusercontent.com/babalae/bettergi-scripts-list/refs/heads/main/build/tree.json';
+  fetchRepoData();
 });
 
 const downloadScript = (script) => {
@@ -208,7 +246,6 @@ const showDetails = (script) => {
     { label: '作者', value: script.author },
     { label: '版本', value: script.version },
     { label: '描述', value: script.description || '无描述' },
-    { label: '路径', value: script.path },
     { label: '标签', value: script.tags },
     { label: 'Hash', value: script.hash },
   ];
@@ -220,47 +257,50 @@ const closeDrawer = () => {
 };
 
 const getCategoryTree = (category) => {
-  const tags = getUniqueTags(category.list);
-  if (tags.length === 0) {
-    return [];
-  }
-  if (category.type === 'tcg') {
-    return [
-    {
-      title: getTabTitle(category.type),
-      key: category.type,
-      children: [{ title: '惊喜牌组', key: '惊喜牌组' }],
-      selectable: false
+  const buildTree = (node) => {
+    if (node.type === 'file') {
+      return null;
     }
-  ];
-  } else if (category.type === 'pathing') {
-    return [
-    {
-      title: getTabTitle(category.type),
-      key: category.type,
-      children: tags.map(tag => ({ title: tag, key: tag })),
-      selectable: false
-    }
-  ];
-  }
-  return [];
+    return {
+      title: node.name,
+      key: node.path,
+      children: Array.isArray(node.children)
+        ? node.children
+            .map(buildTree)
+            .filter(Boolean)
+        : undefined,
+      selectable: true
+    };
+  };
+  return [buildTree(category)].filter(Boolean);
 };
 
 const showTree = (category) => {
-  if (getCategoryTree(category).length === 0) {
-    return false;
-  }
-
-  return getUniqueTags(category.list).length > 1;
+  return category.name === 'pathing';
 };
 
-const handleTreeSelect = (selectedKeys, categoryType) => {
-  searchConditions[categoryType].tags = selectedKeys.filter(key => key !== categoryType);
-  filterData(categoryType);
+const handleTreeSelect = (selectedKeys, event, categoryName) => {
+  const selectedNode = event.node;
+  searchConditions[categoryName].path = selectedNode.key;
+  filterData(categoryName);
 };
 
-const handleTagSelect = (categoryType) => {
-  filterData(categoryType);
+const handleTagSelect = (categoryName) => {
+  filterData(categoryName);
+};
+
+// 添加类别名称映射
+const categoryNameMap = {
+  'pathing': '地图追踪',
+  'js': 'JS脚本',
+  'combat': '战斗策略',
+  'tcg': '七圣召唤',
+  'onekey': '一键宏'
+};
+
+// 添加获取显示名称的函数
+const getCategoryDisplayName = (name) => {
+  return categoryNameMap[name] || name;
 };
 </script>
 
@@ -268,6 +308,5 @@ const handleTagSelect = (categoryType) => {
 .arco-tree {
   background-color: var(--color-fill-2);
   padding: 16px;
-  /* border-radius: 4px; */
 }
 </style>
