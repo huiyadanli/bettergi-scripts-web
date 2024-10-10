@@ -8,7 +8,9 @@
           style="width: 320px"
           @change="fetchRepoData"
         >
-          <a-option value="https://raw.githubusercontent.com/babalae/bettergi-scripts-list/refs/heads/main/build/tree.json">BetterGI 中央仓库</a-option>
+          <a-option v-for="(repo, index) in repoOptions" :key="index" :value="repo.value">
+            {{ repo.label }}
+          </a-option>
         </a-select>
 
         <a-tabs v-if="repoData.length">
@@ -91,6 +93,20 @@
       </template>
       <a-descriptions :data="drawerData" layout="vertical" bordered />
     </a-drawer>
+
+    <!-- 添加加载模态框 -->
+    <a-modal
+      :visible="loading"
+      :footer="false"
+      :closable="false"
+      :mask-closable="false"
+      :unmount-on-close="true"
+    >
+      <div style="text-align: center;">
+        <a-spin size="large" />
+        <p style="margin-top: 16px;">正在加载仓库数据...</p>
+      </div>
+    </a-modal>
   </a-layout>
 </template>
 
@@ -98,12 +114,33 @@
 import { ref, onMounted, reactive, computed } from 'vue';
 import { Message, Popover, Typography } from '@arco-design/web-vue';
 
+const baseRepo = "https://raw.githubusercontent.com/babalae/bettergi-scripts-list/refs/heads/main/build/tree.json";
+const mirrorUrls = [
+  "{0}",
+  "https://mirror.ghproxy.com/{0}",
+  "https://hub.gitmirror.com/{0}",
+  "https://ghproxy.cc/{0}",
+  "https://www.ghproxy.cc/{0}",
+  "https://ghproxy.cn/{0}",
+  "https://ghproxy.net/{0}"
+];
+
+const repoOptions = computed(() => {
+  return mirrorUrls.map((url, index) => ({
+    label: index === 0 ? "BetterGI 中央仓库" : `BetterGI 中央仓库 镜像 ${index}`,
+    value: url.replace("{0}", baseRepo)
+  }));
+});
+
 const selectedRepo = ref('');
 const repoData = ref([]);
 const drawerVisible = ref(false);
 const drawerData = ref([]);
 const searchConditions = reactive({});
 const filteredData = reactive({});
+
+// 添加 loading 状态
+const loading = ref(false);
 
 const columns = [
   { 
@@ -113,14 +150,16 @@ const columns = [
     ellipsis: true,
     tooltip: false // 关闭默认的 tooltip
   },
-  { title: '作者', dataIndex: 'author' },
-  { title: '版本', dataIndex: 'version' },
+  { title: '作者', dataIndex: 'author', width: 200  },
+  { title: '版本', dataIndex: 'version', width: 100 },
   { title: '标签', dataIndex: 'tags', slotName: 'tags' },
   { title: '操作', slotName: 'operations' },
 ];
 
 const fetchRepoData = async () => {
   if (!selectedRepo.value) return;
+  
+  loading.value = true; // 显示加载模态框
   
   try {
     const response = await fetch(selectedRepo.value);
@@ -147,6 +186,8 @@ const fetchRepoData = async () => {
   } catch (error) {
     Message.error('获取仓库数据失败');
     console.error('Error fetching repo data:', error);
+  } finally {
+    loading.value = false; // 隐藏加载模态框
   }
 };
 
@@ -167,6 +208,12 @@ const traverseCategory = (category, callback) => {
     if (category.name === 'js') {
       category.children.forEach(child => {
         if (child.type === 'directory') {
+          // 处理 JS 脚本
+          if (child.description && child.description.includes('~|~')) {
+            const [nameSuffix, newDescription] = child.description.split('~|~');
+            child.name = `${child.name} - ${nameSuffix.trim()}`;
+            child.description = newDescription.trim();
+          }
           callback(child);
         } else {
           traverseCategory(child, callback);
@@ -250,7 +297,7 @@ const getTagColor = (tag) => {
 
 onMounted(() => {
   // 默认选中第一个仓库
-  selectedRepo.value = 'https://raw.githubusercontent.com/babalae/bettergi-scripts-list/refs/heads/main/build/tree.json';
+  selectedRepo.value = repoOptions.value[0].value;
   fetchRepoData();
 });
 
