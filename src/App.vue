@@ -39,7 +39,20 @@
                   </a-row>
                   <a-table :columns="columns" :data="filteredData[category.name]" :pagination="{ pageSize: 20 }">
                     <template #name="{ record }">
-                      {{ record.name }}
+                      <a-popover
+                        position="right"
+                        v-if="record.description"
+                        :content="record.description"
+                        :mouseEnterDelay="0.5"
+                        :mouseLeaveDelay="0.2"
+                      >
+                        <span :ellipsis="{ rows: 1, showTooltip: false }">
+                          {{ record.name }}
+                        </span>
+                      </a-popover>
+                      <span v-else :ellipsis="{ rows: 1, showTooltip: true }">
+                        {{ record.name }}
+                      </span>
                     </template>
                     <template #tags="{ record }">
                       <a-space>
@@ -83,7 +96,7 @@
 
 <script setup>
 import { ref, onMounted, reactive, computed } from 'vue';
-import { Message } from '@arco-design/web-vue';
+import { Message, Popover, Typography } from '@arco-design/web-vue';
 
 const selectedRepo = ref('');
 const repoData = ref([]);
@@ -93,7 +106,13 @@ const searchConditions = reactive({});
 const filteredData = reactive({});
 
 const columns = [
-  { title: '名称', dataIndex: 'name', slotName: 'name' },
+  { 
+    title: '名称', 
+    dataIndex: 'name', 
+    slotName: 'name',
+    ellipsis: true,
+    tooltip: false // 关闭默认的 tooltip
+  },
   { title: '作者', dataIndex: 'author' },
   { title: '版本', dataIndex: 'version' },
   { title: '标签', dataIndex: 'tags', slotName: 'tags' },
@@ -185,7 +204,8 @@ const filterData = (categoryName) => {
   traverseCategory(category, (item) => {
     const nameMatch = !condition.name || item.name.toLowerCase().includes(condition.name.toLowerCase());
     const authorMatch = !condition.author || item.author === condition.author;
-    const tagMatch = condition.tags.length === 0 || (Array.isArray(item.tags) && condition.tags.some(tag => item.tags.includes(tag)));
+    // 修改标签匹配逻辑
+    const tagMatch = condition.tags.length === 0 || (Array.isArray(item.tags) && condition.tags.every(tag => item.tags.includes(tag)));
     const pathMatch = !condition.path || (item.path && item.path.startsWith(condition.path) && item.path !== condition.path);
     if (nameMatch && authorMatch && tagMatch && pathMatch && (item.type === 'file' || (category.name === 'js' && item.type === 'directory'))) {
       filtered.push(item);
@@ -308,5 +328,13 @@ const getCategoryDisplayName = (name) => {
 .arco-tree {
   background-color: var(--color-fill-2);
   padding: 16px;
+}
+
+/* 移除之前为表格单元格添加的样式 */
+.arco-table-td {
+  max-width: none;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 </style>
