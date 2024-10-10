@@ -20,7 +20,16 @@
                 <a-tree
                   :data="getCategoryTree(category)"
                   @select="(selectedKeys, event) => handleTreeSelect(selectedKeys, event, category.name)"
-                />
+                >
+                  <template #extra="nodeData">
+                    <a-tooltip content="点击订阅目录">
+                      <IconCopy
+                        style="position: absolute; right: 8px; font-size: 12px; top: 10px; color: #3370ff; cursor: pointer;"
+                        @click.stop="() => onTreeIconClick(nodeData)"
+                      />
+                    </a-tooltip>
+                  </template>
+                </a-tree>
               </a-col>
               <a-col :span="showTree(category) ? 18 : 24">
                 <a-space direction="vertical" size="medium" style="width: 100%;">
@@ -63,7 +72,7 @@
                     </template>
                     <template #operations="{ record }">
                       <a-space>
-                        <a-button type="primary" size="mini" @click="downloadScript(record)">
+                        <a-button v-if="category.name !== 'pathing'" type="primary" size="mini" @click="downloadScript(record)">
                           订阅
                         </a-button>
                         <a-button size="mini" @click="showDetails(record)">
@@ -113,6 +122,7 @@
 <script setup>
 import { ref, onMounted, reactive, computed } from 'vue';
 import { Message, Popover, Typography } from '@arco-design/web-vue';
+import { useClipboard } from '@vueuse/core';
 
 const baseRepo = "https://raw.githubusercontent.com/babalae/bettergi-scripts-list/refs/heads/main/build/tree.json";
 const mirrorUrls = [
@@ -125,12 +135,10 @@ const mirrorUrls = [
   "https://ghproxy.net/{0}"
 ];
 
-const repoOptions = computed(() => {
-  return mirrorUrls.map((url, index) => ({
-    label: index === 0 ? "BetterGI 中央仓库" : `BetterGI 中央仓库 镜像 ${index}`,
-    value: url.replace("{0}", baseRepo)
-  }));
-});
+const repoOptions = ref(mirrorUrls.map((url, index) => ({
+  label: index === 0 ? "BetterGI 中央仓库" : `BetterGI 中央仓库 镜像 ${index}`,
+  value: url.replace("{0}", baseRepo)
+})));
 
 const selectedRepo = ref('');
 const repoData = ref([]);
@@ -160,6 +168,20 @@ const fetchRepoData = async () => {
   if (!selectedRepo.value) return;
   
   loading.value = true; // 显示加载模态框
+  
+  // 清空现有数据
+  repoData.value = [];
+  Object.keys(searchConditions).forEach(key => {
+    searchConditions[key] = {
+      name: '',
+      author: '',
+      tags: [],
+      path: ''
+    };
+  });
+  Object.keys(filteredData).forEach(key => {
+    filteredData[key] = [];
+  });
   
   try {
     const response = await fetch(selectedRepo.value);
@@ -295,16 +317,22 @@ const getTagColor = (tag) => {
   return tagColorMap[tag];
 };
 
-onMounted(() => {
-  // 默认选中第一个仓库
-  selectedRepo.value = repoOptions.value[0].value;
-  fetchRepoData();
-});
+const { copy } = useClipboard();
 
 const downloadScript = (script) => {
-  // 实现下载逻辑
-  console.log('Downloading script:', script.name);
-  Message.success(`正在下载 ${script.name}`);
+  // 创建一个包含脚本路径的数组
+  const subscriptionData = [script.path];
+
+  // 将数组转换为 JSON 字符串
+  const jsonString = JSON.stringify(subscriptionData);
+
+  // 将 JSON 字符串复制到剪贴板
+  copy(jsonString).then(() => {
+    Message.success(`已将 ${script.name} 的订阅信息复制到剪贴板`);
+  }).catch((error) => {
+    console.error('复制到剪贴板失败:', error);
+    Message.error(`复制 ${script.name} 的订阅信息失败`);
+  });
 };
 
 const showDetails = (script) => {
@@ -324,22 +352,22 @@ const closeDrawer = () => {
 };
 
 const getCategoryTree = (category) => {
-  const buildTree = (node) => {
+  const buildTree = (node, isRoot = false) => {
     if (node.type === 'file') {
       return null;
     }
     return {
-      title: node.name,
+      title: isRoot ? getCategoryDisplayName(node.name) : node.name,
       key: node.path,
       children: Array.isArray(node.children)
         ? node.children
-            .map(buildTree)
+            .map(child => buildTree(child, false))
             .filter(Boolean)
         : undefined,
       selectable: true
     };
   };
-  return [buildTree(category)].filter(Boolean);
+  return [buildTree(category, true)].filter(Boolean);
 };
 
 const showTree = (category) => {
@@ -369,6 +397,18 @@ const categoryNameMap = {
 const getCategoryDisplayName = (name) => {
   return categoryNameMap[name] || name;
 };
+
+const onTreeIconClick = (nodeData) => {
+  downloadScript({name: nodeData.title, path: nodeData.key});
+};
+
+onMounted(() => {
+  // 默认选中第一个仓库
+  if (repoOptions.value.length > 0) {
+    selectedRepo.value = repoOptions.value[0].value;
+    fetchRepoData();
+  }
+});
 </script>
 
 <style scoped>
