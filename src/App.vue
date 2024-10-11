@@ -96,6 +96,7 @@
       @cancel="closeDrawer"
       @ok="closeDrawer"
       unmountOnClose
+      :width="480"
     >
       <template #title>
         脚本详情
@@ -127,12 +128,12 @@ import { useClipboard } from '@vueuse/core';
 const baseRepo = "https://raw.githubusercontent.com/babalae/bettergi-scripts-list/refs/heads/main/build/tree.json";
 const mirrorUrls = [
   "{0}",
-  "https://mirror.ghproxy.com/{0}",
   "https://hub.gitmirror.com/{0}",
   "https://ghproxy.cc/{0}",
   "https://www.ghproxy.cc/{0}",
   "https://ghproxy.cn/{0}",
-  "https://ghproxy.net/{0}"
+  "https://ghproxy.net/{0}",
+  "https://mirror.ghproxy.com/{0}"
 ];
 
 const repoOptions = ref(mirrorUrls.map((url, index) => ({
@@ -206,7 +207,7 @@ const fetchRepoData = async () => {
       });
     });
   } catch (error) {
-    Message.error('获取仓库数据失败');
+    Message.error('获取仓库数据失');
     console.error('Error fetching repo data:', error);
   } finally {
     loading.value = false; // 隐藏加载模态框
@@ -326,12 +327,18 @@ const downloadScript = (script) => {
   // 将数组转换为 JSON 字符串
   const jsonString = JSON.stringify(subscriptionData);
 
-  // 将 JSON 字符串复制到剪贴板
-  copy(jsonString).then(() => {
-    Message.success(`已将 ${script.name} 的订阅信息复制到剪贴板`);
+  // 将 JSON 字符串转换为 UTF-8 编码的 Base64
+  const base64String = btoa(encodeURIComponent(jsonString));
+
+  // 创建完整的 URL
+  const fullUrl = `bettergi://script?import=${base64String}`;
+
+  // 将完整的 URL 复制到剪贴板
+  copy(fullUrl).then(() => {
+    Message.success(`已将 ${script.name} 的订阅链接复制到剪贴板`);
   }).catch((error) => {
     console.error('复制到剪贴板失败:', error);
-    Message.error(`复制 ${script.name} 的订阅信息失败`);
+    Message.error(`复制 ${script.name} 的订阅链接失败`);
   });
 };
 
