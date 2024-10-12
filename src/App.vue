@@ -2,16 +2,21 @@
   <a-layout>
     <a-layout-content :style="{ padding: '20px 50px' }">
       <a-space direction="vertical" size="large" fill>
-        <a-select
-          v-model="selectedRepo"
-          placeholder="选择脚本仓库"
-          style="width: 320px"
-          @change="fetchRepoData"
-        >
-          <a-option v-for="(repo, index) in repoOptions" :key="index" :value="repo.value">
-            {{ repo.label }}
-          </a-option>
-        </a-select>
+        <a-space>
+          <a-select
+            v-model="selectedRepo"
+            placeholder="选择脚本仓库"
+            style="width: 320px"
+            @change="fetchRepoData"
+          >
+            <a-option v-for="(repo, index) in repoOptions" :key="index" :value="repo.value">
+              {{ repo.label }}
+            </a-option>
+          </a-select>
+          <a-typography-text v-if="repoUpdateTime">
+            更新时间：{{ repoUpdateTime }}
+          </a-typography-text>
+        </a-space>
 
         <a-tabs v-if="repoData.length">
           <a-tab-pane v-for="category in repoData" :key="category.name" :title="getCategoryDisplayName(category.name)">
@@ -125,7 +130,7 @@ import { ref, onMounted, reactive, computed } from 'vue';
 import { Message, Popover, Typography } from '@arco-design/web-vue';
 import { useClipboard } from '@vueuse/core';
 
-const baseRepo = "https://raw.githubusercontent.com/babalae/bettergi-scripts-list/refs/heads/main/build/tree.json";
+const baseRepo = "https://raw.githubusercontent.com/babalae/bettergi-scripts-list/refs/heads/main/repo.json";
 const mirrorUrls = [
   "{0}",
   "https://hub.gitmirror.com/{0}",
@@ -151,6 +156,9 @@ const filteredData = reactive({});
 // 添加 loading 状态
 const loading = ref(false);
 
+// 添加新的响应式���量
+const repoUpdateTime = ref('');
+
 const columns = [
   { 
     title: '名称', 
@@ -172,6 +180,7 @@ const fetchRepoData = async () => {
   
   // 清空现有数据
   repoData.value = [];
+  repoUpdateTime.value = ''; // 清空更新时间
   Object.keys(searchConditions).forEach(key => {
     searchConditions[key] = {
       name: '',
@@ -186,16 +195,23 @@ const fetchRepoData = async () => {
   
   try {
     const response = await fetch(selectedRepo.value);
-    const data = await response.json();
+    const repoInfo = await response.json();
+    
+    // 从 indexes 中获取数据
+    repoData.value = repoInfo.indexes;
+    
+    // 解析并设置更新时间
+    if (repoInfo.time) {
+      repoUpdateTime.value = formatDate(repoInfo.time);
+    }
     
     // 为所有节点生成 path
-    data.forEach(category => generatePaths(category));
+    repoData.value.forEach(category => generatePaths(category));
     
-    repoData.value = data;
     initializeSearchConditions();
     
     // 初始化 tagColorMap
-    data.forEach(category => {
+    repoData.value.forEach(category => {
       traverseCategory(category, (item) => {
         if (Array.isArray(item.tags)) {
           item.tags.forEach(tag => {
@@ -207,7 +223,7 @@ const fetchRepoData = async () => {
       });
     });
   } catch (error) {
-    Message.error('获取仓库数据失');
+    Message.error('获取仓库数据失败');
     console.error('Error fetching repo data:', error);
   } finally {
     loading.value = false; // 隐藏加载模态框
@@ -326,8 +342,6 @@ const downloadScript = (script) => {
 
   // 将数组转换为 JSON 字符串
   const jsonString = JSON.stringify(subscriptionData);
-
-  // 将 JSON 字符串转换为 UTF-8 编码的 Base64
   const base64String = btoa(encodeURIComponent(jsonString));
 
   // 创建完整的 URL
@@ -407,6 +421,22 @@ const getCategoryDisplayName = (name) => {
 
 const onTreeIconClick = (nodeData) => {
   downloadScript({name: nodeData.title, path: nodeData.key});
+};
+
+// 修改日期格式化函数
+const formatDate = (timeString) => {
+  if (typeof timeString !== 'string' || timeString.length !== 14) {
+    return '无效的时间格式';
+  }
+  
+  const year = timeString.slice(0, 4);
+  const month = timeString.slice(4, 6);
+  const day = timeString.slice(6, 8);
+  const hours = timeString.slice(8, 10);
+  const minutes = timeString.slice(10, 12);
+  const seconds = timeString.slice(12, 14);
+  
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
 onMounted(() => {
