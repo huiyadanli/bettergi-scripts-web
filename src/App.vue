@@ -132,6 +132,8 @@ import { useClipboard } from '@vueuse/core';
 
 // 添加环境变量的引用
 const mode = import.meta.env.VITE_MODE;
+// 添加新的环境变量引用
+const hiddenTabs = import.meta.env.VITE_HIDDEN_TABS ? import.meta.env.VITE_HIDDEN_TABS.split(',') : [];
 
 const baseRepo = "https://raw.githubusercontent.com/babalae/bettergi-scripts-list/refs/heads/main/repo.json";
 const mirrorUrls = [
@@ -157,7 +159,12 @@ const repoOptions = computed(() => {
 });
 
 const selectedRepo = ref('');
-const repoData = ref([]);
+// 修改 repoData 的定义为 computed 属性
+const repoData = computed(() => {
+  return repoDataRaw.value.filter(category => !hiddenTabs.includes(category.name));
+});
+// 添加一个新的 ref 来存储原始数据
+const repoDataRaw = ref([]);
 const drawerVisible = ref(false);
 const drawerData = ref([]);
 const searchConditions = reactive({});
@@ -192,11 +199,11 @@ const GetRepoDataFromLocal = async () => {
 const fetchRepoData = async () => {
   if (!selectedRepo.value) return;
   
-  loading.value = true; // 显示加载模态框
+  loading.value = true;
   
   // 清空现有数据
-  repoData.value = [];
-  repoUpdateTime.value = ''; // 清空更新时间
+  repoDataRaw.value = [];
+  repoUpdateTime.value = '';
   Object.keys(searchConditions).forEach(key => {
     searchConditions[key] = {
       name: '',
@@ -219,7 +226,7 @@ const fetchRepoData = async () => {
     }
     
     // 从 indexes 中获取数据
-    repoData.value = repoInfo.indexes;
+    repoDataRaw.value = repoInfo.indexes;
     
     // 解析并设置更新时间
     if (repoInfo.time) {
@@ -227,12 +234,12 @@ const fetchRepoData = async () => {
     }
     
     // 为所有节点生成 path
-    repoData.value.forEach(category => generatePaths(category));
+    repoDataRaw.value.forEach(category => generatePaths(category));
     
     initializeSearchConditions();
     
     // 初始化 tagColorMap
-    repoData.value.forEach(category => {
+    repoDataRaw.value.forEach(category => {
       traverseCategory(category, (item) => {
         if (Array.isArray(item.tags)) {
           item.tags.forEach(tag => {
@@ -247,7 +254,7 @@ const fetchRepoData = async () => {
     Message.error('获取仓库数据失败');
     console.error('Error fetching repo data:', error);
   } finally {
-    loading.value = false; // 隐藏加载模态框
+    loading.value = false;
   }
 };
 
@@ -304,7 +311,7 @@ const getUniqueTags = (category) => {
 };
 
 const filterData = (categoryName) => {
-  const category = repoData.value.find(cat => cat.name === categoryName);
+  const category = repoDataRaw.value.find(cat => cat.name === categoryName);
   const condition = searchConditions[categoryName];
   
   const filtered = [];
@@ -323,7 +330,7 @@ const filterData = (categoryName) => {
 };
 
 const initializeSearchConditions = () => {
-  repoData.value.forEach(category => {
+  repoDataRaw.value.forEach(category => {
     searchConditions[category.name] = {
       name: '',
       author: '',
@@ -445,6 +452,7 @@ const handleTagSelect = (categoryName) => {
 const categoryNameMap = {
   'pathing': '地图追踪',
   'js': 'JS脚本',
+  'keymouse': '键鼠脚本',
   'combat': '战斗策略',
   'tcg': '七圣召唤',
   'onekey': '一键宏'
