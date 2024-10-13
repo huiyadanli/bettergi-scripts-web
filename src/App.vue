@@ -29,7 +29,7 @@
                   <template #extra="nodeData">
                     <a-tooltip content="点击订阅目录">
                       <IconCopy
-                        style="position: absolute; right: 8px; font-size: 12px; top: 10px; color: #3370ff; cursor: pointer;"
+                        style="position: absolute; right: 8px; font-size: 14px; top: 10px; color: #3370ff; cursor: pointer;"
                         @click.stop="() => onTreeIconClick(nodeData)"
                       />
                     </a-tooltip>
@@ -130,6 +130,9 @@ import { ref, onMounted, reactive, computed } from 'vue';
 import { Message, Popover, Typography } from '@arco-design/web-vue';
 import { useClipboard } from '@vueuse/core';
 
+// 添加环境变量的引用
+const mode = import.meta.env.VITE_MODE;
+
 const baseRepo = "https://raw.githubusercontent.com/babalae/bettergi-scripts-list/refs/heads/main/repo.json";
 const mirrorUrls = [
   "{0}",
@@ -141,10 +144,17 @@ const mirrorUrls = [
   "https://mirror.ghproxy.com/{0}"
 ];
 
-const repoOptions = ref(mirrorUrls.map((url, index) => ({
-  label: index === 0 ? "BetterGI 中央仓库" : `BetterGI 中央仓库 镜像 ${index}`,
-  value: url.replace("{0}", baseRepo)
-})));
+// 修改 repoOptions 的定义
+const repoOptions = computed(() => {
+  if (mode === 'single') {
+    return [{ label: "BetterGI 本地仓库", value: "local" }];
+  } else {
+    return mirrorUrls.map((url, index) => ({
+      label: index === 0 ? "BetterGI 中央仓库" : `BetterGI 中央仓库 镜像 ${index}`,
+      value: url.replace("{0}", baseRepo)
+    }));
+  }
+});
 
 const selectedRepo = ref('');
 const repoData = ref([]);
@@ -156,7 +166,7 @@ const filteredData = reactive({});
 // 添加 loading 状态
 const loading = ref(false);
 
-// 添加新的响应式���量
+// 添加新的响应式量
 const repoUpdateTime = ref('');
 
 const columns = [
@@ -172,6 +182,12 @@ const columns = [
   { title: '标签', dataIndex: 'tags', slotName: 'tags' },
   { title: '操作', slotName: 'operations' },
 ];
+
+const GetRepoDataFromLocal = async () => {
+  const repoWebBridge = chrome.webview.hostObjects.repoWebBridge;
+  const jsonString = await repoWebBridge.GetRepoJson();
+  return JSON.parse(jsonString);
+};
 
 const fetchRepoData = async () => {
   if (!selectedRepo.value) return;
@@ -194,8 +210,13 @@ const fetchRepoData = async () => {
   });
   
   try {
-    const response = await fetch(selectedRepo.value);
-    const repoInfo = await response.json();
+    let repoInfo;
+    if (mode === 'single') {
+      repoInfo = await GetRepoDataFromLocal();
+    } else {
+      const response = await fetch(selectedRepo.value);
+      repoInfo = await response.json();
+    }
     
     // 从 indexes 中获取数据
     repoData.value = repoInfo.indexes;
@@ -336,7 +357,7 @@ const getTagColor = (tag) => {
 
 const { copy } = useClipboard();
 
-const downloadScript = (script) => {
+const downloadScript = async (script) => {
   // 创建一个包含脚本路径的数组
   const subscriptionData = [script.path];
 
@@ -347,13 +368,28 @@ const downloadScript = (script) => {
   // 创建完整的 URL
   const fullUrl = `bettergi://script?import=${base64String}`;
 
-  // 将完整的 URL 复制到剪贴板
-  copy(fullUrl).then(() => {
-    Message.success(`已将 ${script.name} 的订阅链接复制到剪贴板`);
-  }).catch((error) => {
-    console.error('复制到剪贴板失败:', error);
-    Message.error(`复制 ${script.name} 的订阅链接失败`);
-  });
+  if (mode === 'single') {
+    try {
+      await subscribeToLocal(fullUrl);
+      // Message.success(`已成功订阅 ${script.name}`);
+    } catch (error) {
+      console.error('订阅脚本失败:', error);
+      Message.error(`订阅 ${script.name} 失败`);
+    }
+  } else {
+    // 将完整的 URL 复制到剪贴板
+    copy(fullUrl).then(() => {
+      Message.success(`已将 ${script.name} 的订阅链接复制到剪贴板`);
+    }).catch((error) => {
+      console.error('复制到剪贴板失败:', error);
+      Message.error(`复制 ${script.name} 的订阅链接失败`);
+    });
+  }
+};
+
+const subscribeToLocal = async (url) => {
+  const repoWebBridge = chrome.webview.hostObjects.repoWebBridge;
+  await repoWebBridge.ImportUri(url);
 };
 
 const showDetails = (script) => {
