@@ -27,12 +27,14 @@
                   @select="(selectedKeys, event) => handleTreeSelect(selectedKeys, event, category.name)"
                 >
                   <template #extra="nodeData">
-                    <a-tooltip content="点击订阅目录">
-                      <IconCopy
-                        style="position: absolute; right: 8px; font-size: 14px; top: 10px; color: #3370ff; cursor: pointer;"
-                        @click.stop="() => onTreeIconClick(nodeData)"
-                      />
-                    </a-tooltip>
+                    <a-button
+                      type="text"
+                      size="mini"
+                      style="position: absolute; right: 8px; top: 6px; color: #3370ff;"
+                      @click.stop="() => onTreeIconClick(nodeData)"
+                    >
+                      订阅
+                    </a-button>
                   </template>
                 </a-tree>
               </a-col>
