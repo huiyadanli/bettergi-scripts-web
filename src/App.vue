@@ -24,6 +24,7 @@
               <a-col :span="6" v-if="showTree(category)">
                 <a-tree
                   :data="getCategoryTree(category)"
+                  :defaultExpandedKeys="getExpandedKeys(category)"
                   @select="(selectedKeys, event) => handleTreeSelect(selectedKeys, event, category.name)"
                 >
                   <template #extra="nodeData">
@@ -370,7 +371,7 @@ const downloadScript = async (script) => {
   // 创建一个包含脚本路径的数组
   const subscriptionData = [script.path];
 
-  // 将数组转换为 JSON 字���串
+  // 将数组转换为 JSON 字串
   const jsonString = JSON.stringify(subscriptionData);
   const base64String = btoa(encodeURIComponent(jsonString));
 
@@ -390,7 +391,7 @@ const downloadScript = async (script) => {
     copy(fullUrl).then(() => {
       Message.success(`已将 ${script.name} 的订阅链接复制到剪贴板`);
     }).catch((error) => {
-      console.error('复制到剪贴���失败:', error);
+      console.error('复制到剪贴板失败:', error);
       Message.error(`复制 ${script.name} 的订阅链接失败`);
     });
   }
@@ -517,6 +518,25 @@ const getIconUrl = (tag) => {
   }
   
   return iconPath;
+};
+
+// 添加一个新的函数来获取前两级节点的 keys
+const getExpandedKeys = (category) => {
+  const keys = [];
+  
+  // 添加根节点
+  keys.push(category.path);
+  
+  // 添加第一级子节点
+  // if (Array.isArray(category.children)) {
+  //   category.children.forEach(child => {
+  //     if (child.path) {
+  //       keys.push(child.path);
+  //     }
+  //   });
+  // }
+  
+  return keys;
 };
 
 onMounted(() => {
