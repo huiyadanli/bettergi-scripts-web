@@ -128,7 +128,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive, computed } from 'vue';
+import { ref, onMounted, reactive, computed, h } from 'vue';
 import { Message, Popover, Typography } from '@arco-design/web-vue';
 import { useClipboard } from '@vueuse/core';
 
@@ -370,7 +370,7 @@ const downloadScript = async (script) => {
   // 创建一个包含脚本路径的数组
   const subscriptionData = [script.path];
 
-  // 将数组转换为 JSON 字符串
+  // 将数组转换为 JSON 字���串
   const jsonString = JSON.stringify(subscriptionData);
   const base64String = btoa(encodeURIComponent(jsonString));
 
@@ -390,7 +390,7 @@ const downloadScript = async (script) => {
     copy(fullUrl).then(() => {
       Message.success(`已将 ${script.name} 的订阅链接复制到剪贴板`);
     }).catch((error) => {
-      console.error('复制到剪贴板失败:', error);
+      console.error('复制到剪贴���失败:', error);
       Message.error(`复制 ${script.name} 的订阅链接失败`);
     });
   }
@@ -422,7 +422,9 @@ const getCategoryTree = (category) => {
     if (node.type === 'file') {
       return null;
     }
-    return {
+    
+    // 创建基本树节点
+    const treeNode = {
       title: isRoot ? getCategoryDisplayName(node.name) : node.name,
       key: node.path,
       children: Array.isArray(node.children)
@@ -432,7 +434,24 @@ const getCategoryTree = (category) => {
         : undefined,
       selectable: true
     };
+    
+    // 为非根节点添加图标
+    if (!isRoot) {
+      treeNode.icon = () => h('img', {
+        src: getIconUrl(node.name),
+        style: {
+          width: '22px',
+          height: '22px',
+        },
+        onError: (e) => {
+          e.target.style.display = 'none';
+        }
+      });
+    }
+    
+    return treeNode;
   };
+  
   return [buildTree(category, true)].filter(Boolean);
 };
 
@@ -485,6 +504,21 @@ const formatDate = (timeString) => {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
+// 在 script setup 部分添加图标 URL 处理函数
+const getIconUrl = (tag) => {
+  const baseIconUrl = "https://raw.githubusercontent.com/babalae/bettergi-scripts-list/refs/heads/main/repo/pathing/";
+  const encodedTag = encodeURIComponent(tag);
+  const iconPath = `${baseIconUrl}${encodedTag}/icon.ico`;
+  
+  // 使用当前选中的镜像URL格式
+  if (selectedRepo.value && selectedRepo.value !== 'local') {
+    const mirrorFormat = selectedRepo.value.split(baseRepo)[0];
+    return mirrorFormat + iconPath;
+  }
+  
+  return iconPath;
+};
+
 onMounted(() => {
   // 默认选中第一个仓库
   if (repoOptions.value.length > 0) {
@@ -498,6 +532,16 @@ onMounted(() => {
 .arco-tree {
   background-color: var(--color-fill-2);
   padding: 16px;
+}
+
+/* 添加图标相关样式 */
+:deep(.arco-tree-node-title) {
+  display: flex;
+  align-items: center;
+}
+
+:deep(.arco-tree-node-icon) {
+  margin-right: 4px;
 }
 
 /* 移除之前为表格单元格添加的样式 */
