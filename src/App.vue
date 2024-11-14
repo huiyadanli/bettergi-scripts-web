@@ -436,8 +436,8 @@ const getCategoryTree = (category) => {
       selectable: true
     };
     
-    // 为非根节点添加图标
-    if (!isRoot) {
+    // 只在非本地模式且非根节点时添加图标
+    if (!isRoot && mode !== 'single') {
       treeNode.icon = () => h('img', {
         src: getIconUrl(node.name),
         style: {
