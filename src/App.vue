@@ -449,21 +449,14 @@ const subscribeToLocal = async (url) => {
 };
 
 const showDetails = (script) => {
-  const detailsData = [
+  drawerData.value = [
     { label: '名称', value: script.name },
     { label: '作者', value: script.author },
     { label: '版本', value: script.version },
     { label: '描述', value: script.description || '无描述' },
     { label: '标签', value: script.tags },
-    { label: 'Hash', value: script.hash }
+    { label: 'Hash', value: script.hash },
   ];
-
-  // 只为特定类别添加更新时间
-  if (['pathing', 'js', 'tcg', 'combat'].includes(script.path.split('/')[0])) {
-    detailsData.push({ label: '更新时间', value: formatDate(script.time) || '无更新时间' });
-  }
-
-  drawerData.value = detailsData;
   drawerVisible.value = true;
 };
 
