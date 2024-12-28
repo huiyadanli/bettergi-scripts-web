@@ -36,14 +36,13 @@
             <a-row :gutter="16">
               <a-col :span="6" v-if="showTree(category)">
                 <a-input
-                  v-model="treeSearch[category.name]"
-                  placeholder="搜索左侧栏"
+                  v-model="treeSearch"
+                  placeholder="搜索目录"
                   style="width: 100%; margin-bottom: 16px;"
                   allow-clear
-                  @change="filterTreeData(category.name)"
                 />
                 <a-tree
-                  :data="getFilteredCategoryTree(category)"
+                  :data="getCategoryTree(category)"
                   :defaultExpandedKeys="getExpandedKeys(category)"
                   @select="(selectedKeys, event) => handleTreeSelect(selectedKeys, event, category.name)"
                 >
@@ -115,7 +114,7 @@
           </a-tab-pane>
         </a-tabs>
 
-        <a-empty v-else description="请选择一个仓库" />
+        <a-empty v-else description="请选择一个仓库" />zz
       </a-space>
     </a-layout-content>
 
