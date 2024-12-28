@@ -13,11 +13,13 @@
               {{ repo.label }}
             </a-option>
           </a-select>
+          <!-- 添加搜索框 -->
           <a-input
-            v-model="treeSearch"
+            v-model="treeSearchText"
             placeholder="搜索左侧栏"
             style="width: 200px"
             allow-clear
+            @input="handleTreeSearch"
           />
           <a-typography-text v-if="repoUpdateTime">
             更新时间：{{ repoUpdateTime }}
@@ -25,24 +27,11 @@
         </a-space>
 
         <a-tabs v-if="repoData.length">
-          <div style="margin-bottom: 16px;">
-            <a-input
-              v-model="categorySearch"
-              placeholder="搜索分类"
-              style="width: 200px;"
-              allow-clear
-            />
-          </div>
-          <a-tab-pane 
-            v-for="category in repoData" 
-            :key="category.name" 
-            :title="getCategoryDisplayName(category.name)"
-            v-show="!categorySearch || getCategoryDisplayName(category.name).toLowerCase().includes(categorySearch.toLowerCase())"
-          >
+          <a-tab-pane v-for="category in repoData" :key="category.name" :title="getCategoryDisplayName(category.name)">
             <a-row :gutter="16">
               <a-col :span="6" v-if="showTree(category)">
                 <a-tree
-                  :data="getCategoryTree(category)"
+                  :data="filteredTreeData[category.name] || getCategoryTree(category)"
                   :defaultExpandedKeys="getExpandedKeys(category)"
                   @select="(selectedKeys, event) => handleTreeSelect(selectedKeys, event, category.name)"
                 >
@@ -168,6 +157,43 @@ const mirrorUrls = [
   "https://mirror.ghproxy.com/{0}"
 ];
 
+// 添加树搜索相关的响应式变量
+const treeSearchText = ref('');
+const filteredTreeData = reactive({});
+
+// 添加树搜索处理函数
+const handleTreeSearch = () => {
+  repoData.value.forEach(category => {
+    if (showTree(category)) {
+      if (!treeSearchText.value) {
+        filteredTreeData[category.name] = getCategoryTree(category);
+      } else {
+        const searchText = treeSearchText.value.toLowerCase();
+        const originalTree = getCategoryTree(category);
+        filteredTreeData[category.name] = filterTreeNodes(originalTree, searchText);
+      }
+    }
+  });
+};
+
+// 添加树节点过滤函数
+const filterTreeNodes = (nodes, searchText) => {
+  return nodes.map(node => {
+    const newNode = { ...node };
+    if (newNode.children) {
+      newNode.children = filterTreeNodes(newNode.children, searchText);
+    }
+    
+    if (
+      newNode.title.toLowerCase().includes(searchText) ||
+      (newNode.children && newNode.children.length > 0)
+    ) {
+      return newNode;
+    }
+    return null;
+  }).filter(Boolean);
+};
+
 // 修改 repoOptions 的定义
 const repoOptions = computed(() => {
   if (mode === 'single') {
@@ -226,6 +252,7 @@ const fetchRepoData = async () => {
   // 清空现有数据
   repoDataRaw.value = [];
   repoUpdateTime.value = '';
+  treeSearchText.value = ''; // 清空树搜索文本
   Object.keys(searchConditions).forEach(key => {
     searchConditions[key] = {
       name: '',
