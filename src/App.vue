@@ -35,12 +35,14 @@
           >
             <a-row :gutter="16">
               <a-col :span="6" v-if="showTree(category)">
-                <a-input
-                  v-model="treeSearch"
-                  placeholder="搜索目录"
-                  style="width: 100%; margin-bottom: 16px;"
-                  allow-clear
-                />
+                <div style="margin-bottom: 16px;">
+                  <a-input
+                    v-model="treeSearch"
+                    placeholder="搜索目录"
+                    style="width: 100%;"
+                    allow-clear
+                  />
+                </div>
                 <a-tree
                   :data="getCategoryTree(category)"
                   :defaultExpandedKeys="getExpandedKeys(category)"
