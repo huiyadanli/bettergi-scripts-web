@@ -35,8 +35,15 @@
           >
             <a-row :gutter="16">
               <a-col :span="6" v-if="showTree(category)">
+                <a-input
+                  v-model="treeSearch[category.name]"
+                  placeholder="搜索左侧栏"
+                  style="width: 100%; margin-bottom: 16px;"
+                  allow-clear
+                  @change="filterTreeData(category.name)"
+                />
                 <a-tree
-                  :data="getCategoryTree(category)"
+                  :data="getFilteredCategoryTree(category)"
                   :defaultExpandedKeys="getExpandedKeys(category)"
                   @select="(selectedKeys, event) => handleTreeSelect(selectedKeys, event, category.name)"
                 >
