@@ -2,7 +2,7 @@
   <a-layout>
     <a-layout-content :style="{ padding: '20px 50px' }">
       <a-space direction="vertical" size="large" fill>
-        <a-space>
+        <a-space v-motion-slide-in>
           <a-select
             v-model="selectedRepo"
             placeholder="选择脚本仓库"
@@ -26,10 +26,10 @@
           </a-typography-text>
         </a-space>
 
-        <a-tabs v-if="repoData.length">
+        <a-tabs v-if="repoData.length" v-motion-slide-in>
           <a-tab-pane v-for="category in repoData" :key="category.name" :title="getCategoryDisplayName(category.name)">
             <a-row :gutter="16">
-              <a-col :span="6" v-if="showTree(category)">
+              <a-col :span="6" v-if="showTree(category)" v-motion-slide-in>
                 <a-tree
                   :data="filteredTreeData[category.name] || getCategoryTree(category)"
                   :defaultExpandedKeys="getExpandedKeys(category)"
@@ -47,7 +47,7 @@
                   </template>
                 </a-tree>
               </a-col>
-              <a-col :span="showTree(category) ? 18 : 24">
+              <a-col :span="showTree(category) ? 18 : 24" v-motion-slide-in>
                 <a-space direction="vertical" size="medium" style="width: 100%;">
                   <a-row :gutter="16">
                     <a-col :span="8">
@@ -103,7 +103,7 @@
           </a-tab-pane>
         </a-tabs>
 
-        <a-empty v-else description="请选择一个仓库" />
+        <a-empty v-else description="请选择一个仓库" v-motion-slide-in />
       </a-space>
     </a-layout-content>
 
@@ -113,6 +113,7 @@
       @ok="closeDrawer"
       unmountOnClose
       :width="480"
+      v-motion-slide-in
     >
       <template #title>
         脚本详情
@@ -127,6 +128,7 @@
       :closable="false"
       :mask-closable="false"
       :unmount-on-close="true"
+      v-motion-slide-in
     >
       <div style="text-align: center;">
         <a-spin size="large" />
@@ -140,6 +142,7 @@
 import { ref, onMounted, reactive, computed, h } from 'vue';
 import { Message, Popover, Typography } from '@arco-design/web-vue';
 import { useClipboard } from '@vueuse/core';
+import { MotionPlugin } from '@vueuse/motion'
 
 // 添加环境变量的引用
 const mode = import.meta.env.VITE_MODE;
@@ -455,7 +458,7 @@ const showDetails = (script) => {
     { label: '版本', value: script.version },
     { label: '描述', value: script.description || '无描述' },
     { label: '标签', value: script.tags },
-    { label: 'Hash', value: script.hash },
+    { label: 'Hash', value: script.hash }
   ];
   drawerVisible.value = true;
 };
