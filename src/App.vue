@@ -42,7 +42,7 @@
                       style="position: absolute; right: 8px; top: 6px; color: #3370ff;"
                       @click.stop="() => onTreeIconClick(nodeData)"
                     >
-                      订阅
+                      {{ nodeData.key === category.path ? '订阅全部' : '订阅' }}
                     </a-button>
                   </template>
                 </a-tree>
