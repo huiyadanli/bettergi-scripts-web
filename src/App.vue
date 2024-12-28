@@ -460,7 +460,7 @@ const showDetails = (script) => {
 
   // 只为特定类别添加更新时间
   if (['pathing', 'js', 'tcg', 'combat'].includes(script.path.split('/')[0])) {
-    detailsData.push({ label: '更新时间', value: repoUpdateTime.value || '未知' });
+    detailsData.push({ label: '更新时间', value: formatDate(script.time) || '无更新时间' });
   }
 
   drawerData.value = detailsData;
