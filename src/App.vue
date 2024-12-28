@@ -455,7 +455,7 @@ const showDetails = (script) => {
     { label: '版本', value: script.version },
     { label: '描述', value: script.description || '无描述' },
     { label: '标签', value: script.tags },
-    { label: 'Hash', value: script.hash },
+    { label: 'Hash', value: script.hash }
   ];
 
   // 只为特定类别添加更新时间
