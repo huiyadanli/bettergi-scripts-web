@@ -25,13 +25,13 @@
               placeholder="搜索分类"
               style="width: 200px;"
               allow-clear
-              @input="filterCategories"
             />
           </div>
           <a-tab-pane 
-            v-for="category in filteredCategories" 
+            v-for="category in repoData" 
             :key="category.name" 
             :title="getCategoryDisplayName(category.name)"
+            v-show="!categorySearch || getCategoryDisplayName(category.name).toLowerCase().includes(categorySearch.toLowerCase())"
           >
             <a-row :gutter="16">
               <a-col :span="6" v-if="showTree(category)">
