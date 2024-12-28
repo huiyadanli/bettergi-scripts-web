@@ -20,15 +20,17 @@
 
         <a-tabs v-if="repoData.length">
           <a-input
-            v-model="tabSearch"
+            v-model="categorySearch"
             placeholder="搜索分类"
             style="width: 200px; margin-bottom: 16px;"
             allow-clear
+            @input="filterCategories"
           />
           <a-tab-pane 
-            v-for="category in filteredCategories" 
+            v-for="category in repoData" 
             :key="category.name" 
             :title="getCategoryDisplayName(category.name)"
+            v-show="isCategoryVisible(category)"
           >
             <a-row :gutter="16">
               <a-col :span="6" v-if="showTree(category)">
