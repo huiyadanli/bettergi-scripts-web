@@ -13,21 +13,31 @@
               {{ repo.label }}
             </a-option>
           </a-select>
-          <a-input.Search
-            v-model="globalSearch"
-            placeholder="全局搜索脚本"
-            style="width: 320px"
-            @search="handleGlobalSearch"
-          />
           <a-typography-text v-if="repoUpdateTime">
             更新时间：{{ repoUpdateTime }}
           </a-typography-text>
           <a href="https://bgi.huiyadan.com/doc.html" target="_blank" style="color: #3370ff">
             点我申请提交你的脚本
-          </a-link>
+          </a>
+          <a-input-search
+            v-model="globalSearch"
+            placeholder="全局搜索"
+            style="width: 320px"
+            allow-clear
+            @search="handleGlobalSearch"
+          >
+            <template #button-icon>
+              <icon-search />
+            </template>
+            <template #button-default>
+              <a-button type="primary">
+                订阅
+              </a-button>
+            </template>
+          </a-input-search>
         </a-space>
 
-        <a-tabs v-if="repoData.length" :activeKey="activeTab">
+        <a-tabs v-if="repoData.length">
           <a-tab-pane v-for="category in repoData" :key="category.name" :title="getCategoryDisplayName(category.name)">
             <a-row :gutter="16">
               <a-col :span="6" v-if="showTree(category)">
