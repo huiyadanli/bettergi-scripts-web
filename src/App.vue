@@ -16,9 +16,9 @@
           <a-typography-text v-if="repoUpdateTime">
             更新时间：{{ repoUpdateTime }}
           </a-typography-text>
-          <a-typography-text type="primary" style="cursor: pointer" @click="() => window.open('https://bgi.huiyadan.com/dev/pr.html', '_blank')">
-            点我查看如何提交你的脚本
-          </a-typography-text>
+          <a-link href="https://bgi.huiyadan.com/doc.html" target="_blank" style="color: #3370ff">
+            点我申请提交你的脚本
+          </a-link>
         </a-space>
 
         <a-tabs v-if="repoData.length">
