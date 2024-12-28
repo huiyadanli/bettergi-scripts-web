@@ -141,6 +141,7 @@
       @cancel="closeWelcome"
       :unmount-on-close="true"
       title="欢迎使用"
+      okText="朕已阅"
     >
       <div style="text-align: center;">
         <a href="https://pd.qq.com/s/hamg9ixdw" target="_blank" style="color: #3370ff; font-size: 16px;">
@@ -148,7 +149,7 @@
         </a>
       </div>
       <div style="margin-top: 16px;">
-        <a-checkbox v-model="doNotShowAgain">24小时内不再提示</a-checkbox>
+        <a-checkbox v-model="doNotShowAgain">永远不再提示</a-checkbox>
       </div>
     </a-modal>
 
