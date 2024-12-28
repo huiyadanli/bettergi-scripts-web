@@ -42,7 +42,7 @@
                       style="position: absolute; right: 8px; top: 6px; color: #3370ff;"
                       @click.stop="() => onTreeIconClick(nodeData)"
                     >
-                      {{ nodeData.key === category.path ? '订阅全部' : '订阅' }}
+                      订阅
                     </a-button>
                   </template>
                 </a-tree>
@@ -88,7 +88,7 @@
                     </template>
                     <template #operations="{ record }">
                       <a-space>
-                        <a-button type="primary" size="mini" @click="downloadScript(record)">
+                        <a-button v-if="category.name !== 'pathing'" type="primary" size="mini" @click="downloadScript(record)">
                           订阅
                         </a-button>
                         <a-button size="mini" @click="showDetails(record)">
