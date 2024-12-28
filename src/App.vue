@@ -75,9 +75,6 @@
                       <span v-else :ellipsis="{ rows: 1, showTooltip: true }">
                         {{ record.name }}
                       </span>
-                      <div style="font-size: 12px; color: #86909c;">
-                        该脚本订阅量：{{ record.subscriptions || 0 }}
-                      </div>
                     </template>
                     <template #tags="{ record }">
                       <a-space>
@@ -94,6 +91,9 @@
                             详情
                           </a-button>
                         </a-space>
+                        <a-typography-text type="secondary">
+                          该脚本订阅量：{{ record.subscribeCount || 0 }}
+                        </a-typography-text>
                       </a-space>
                     </template>
                   </a-table>
