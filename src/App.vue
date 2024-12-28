@@ -96,12 +96,6 @@
                         </a-button>
                       </a-space>
                     </template>
-                    <template #empty>
-                      <div style="text-align: center;">
-                        <p>暂无数据</p>
-                        <p v-if="category.updateTime">最后更新时间: {{ formatDate(category.updateTime) }}</p>
-                      </div>
-                    </template>
                   </a-table>
                 </a-space>
               </a-col>
@@ -455,7 +449,7 @@ const subscribeToLocal = async (url) => {
 };
 
 const showDetails = (script) => {
-  drawerData.value = [
+  const detailsData = [
     { label: '名称', value: script.name },
     { label: '作者', value: script.author },
     { label: '版本', value: script.version },
@@ -463,6 +457,13 @@ const showDetails = (script) => {
     { label: '标签', value: script.tags },
     { label: 'Hash', value: script.hash },
   ];
+
+  // 只为特定类别添加更新时间
+  if (['pathing', 'js', 'tcg', 'combat'].includes(script.path.split('/')[0])) {
+    detailsData.push({ label: '更新时间', value: repoUpdateTime.value || '未知' });
+  }
+
+  drawerData.value = detailsData;
   drawerVisible.value = true;
 };
 
