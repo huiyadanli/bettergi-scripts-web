@@ -75,31 +75,28 @@
                       <span v-else :ellipsis="{ rows: 1, showTooltip: true }">
                         {{ record.name }}
                       </span>
+                      <div style="font-size: 12px; color: #86909c;">
+                        该脚本订阅量：{{ record.subscriptions || 0 }}
+                      </div>
                     </template>
                     <template #tags="{ record }">
                       <a-space>
                         <a-tag v-for="tag in record.tags" :key="tag" :color="getTagColor(tag)">{{ tag }}</a-tag>
                       </a-space>
                     </template>
-                    <template #subscriptions="{ record }">
-                      {{ record.subscriptions || 0 }}
-                    </template>
                     <template #operations="{ record }">
-                      <a-space>
-                        <a-button v-if="category.name !== 'pathing'" type="primary" size="mini" @click="downloadScript(record)">
-                          订阅
-                        </a-button>
-                        <a-button size="mini" @click="showDetails(record)">
-                          详情
-                        </a-button>
+                      <a-space direction="vertical">
+                        <a-space>
+                          <a-button v-if="category.name !== 'pathing'" type="primary" size="mini" @click="downloadScript(record)">
+                            订阅
+                          </a-button>
+                          <a-button size="mini" @click="showDetails(record)">
+                            详情
+                          </a-button>
+                        </a-space>
                       </a-space>
                     </template>
                   </a-table>
-                  <div style="text-align: right; margin-top: 8px;">
-                    <a-typography-text>
-                      总订阅量: {{ getTotalSubscriptions(category) }}
-                    </a-typography-text>
-                  </div>
                 </a-space>
               </a-col>
             </a-row>
