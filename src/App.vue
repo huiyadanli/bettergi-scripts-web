@@ -96,6 +96,12 @@
                         </a-button>
                       </a-space>
                     </template>
+                    <template #empty>
+                      <div style="text-align: center;">
+                        <p>暂无数据</p>
+                        <p v-if="category.updateTime">最后更新时间: {{ formatDate(category.updateTime) }}</p>
+                      </div>
+                    </template>
                   </a-table>
                 </a-space>
               </a-col>
