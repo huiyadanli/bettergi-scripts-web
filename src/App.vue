@@ -1,5 +1,10 @@
 <template>
-  <a-layout>
+  <a-layout :style="{ backgroundColor: isDarkMode ? '#000000' : '#ffffff' }">
+    <a-layout-header>
+      <a-button @click="toggleTheme">
+        {{ isDarkMode ? '切换到白天模式' : '切换到黑夜模式' }}
+      </a-button>
+    </a-layout-header>
     <a-layout-content :style="{ padding: '20px 50px' }">
       <a-space direction="vertical" size="large" fill>
         <a-space>
@@ -140,6 +145,14 @@
 import { ref, onMounted, reactive, computed, h } from 'vue';
 import { Message, Popover, Typography } from '@arco-design/web-vue';
 import { useClipboard } from '@vueuse/core';
+
+// 添加主题切换相关的响应式变量
+const isDarkMode = ref(false);
+
+// 添加主题切换函数
+const toggleTheme = () => {
+  isDarkMode.value = !isDarkMode.value;
+};
 
 // 添加环境变量的引用
 const mode = import.meta.env.VITE_MODE;
@@ -616,5 +629,10 @@ onMounted(() => {
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
+}
+
+/* 添加主题相关样式 */
+.arco-layout {
+  transition: background-color 0.3s ease;
 }
 </style>
