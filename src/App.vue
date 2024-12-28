@@ -16,13 +16,20 @@
           <a-typography-text v-if="repoUpdateTime">
             更新时间：{{ repoUpdateTime }}
           </a-typography-text>
-          <a href="https://bgi.huiyadan.com/dev/pr.html" target="_blank" style="color: #3370ff">
-            这里可以教你怎么提交你自己的脚本
-          </a>
         </a-space>
 
         <a-tabs v-if="repoData.length">
-          <a-tab-pane v-for="category in repoData" :key="category.name" :title="getCategoryDisplayName(category.name)">
+          <a-input
+            v-model="tabSearch"
+            placeholder="搜索分类"
+            style="width: 200px; margin-bottom: 16px;"
+            allow-clear
+          />
+          <a-tab-pane 
+            v-for="category in filteredCategories" 
+            :key="category.name" 
+            :title="getCategoryDisplayName(category.name)"
+          >
             <a-row :gutter="16">
               <a-col :span="6" v-if="showTree(category)">
                 <a-tree
@@ -128,26 +135,6 @@
         <p style="margin-top: 16px;">正在加载仓库数据...</p>
       </div>
     </a-modal>
-
-    <!-- 添加欢迎弹窗 -->
-    <a-modal
-      :visible="welcomeVisible"
-      @ok="closeWelcome"
-      @cancel="closeWelcome"
-      :unmount-on-close="true"
-      title="欢迎使用"
-      okText="朕已阅"
-    >
-      <div style="text-align: center;">
-        <a href="https://pd.qq.com/s/hamg9ixdw" target="_blank" style="color: #3370ff; font-size: 16px;">
-          点我添加betterGI官方频道
-        </a>
-      </div>
-      <div style="margin-top: 16px;">
-        <a-checkbox v-model="doNotShowAgain">永远不再提示</a-checkbox>
-      </div>
-    </a-modal>
-
   </a-layout>
 </template>
 
@@ -155,10 +142,6 @@
 import { ref, onMounted, reactive, computed, h } from 'vue';
 import { Message, Popover, Typography } from '@arco-design/web-vue';
 import { useClipboard } from '@vueuse/core';
-
-// 添加欢迎弹窗相关的响应式变量
-const welcomeVisible = ref(false);
-const doNotShowAgain = ref(false);
 
 // 添加环境变量的引用
 const mode = import.meta.env.VITE_MODE;
@@ -219,23 +202,6 @@ const columns = [
   { title: '标签', dataIndex: 'tags', slotName: 'tags' },
   { title: '操作', slotName: 'operations' },
 ];
-
-// 添加关闭欢迎弹窗的方法
-const closeWelcome = () => {
-  if (doNotShowAgain.value) {
-    const expiryTime = Date.now() + 24 * 60 * 60 * 1000; // 24小时后的时间戳
-    localStorage.setItem('welcomeModalExpiry', expiryTime.toString());
-  }
-  welcomeVisible.value = false;
-};
-
-// 添加检查是否显示欢迎弹窗的方法
-const checkWelcomeModal = () => {
-  const expiryTime = localStorage.getItem('welcomeModalExpiry');
-  if (!expiryTime || Date.now() > parseInt(expiryTime)) {
-    welcomeVisible.value = true;
-  }
-};
 
 const GetRepoDataFromLocal = async () => {
   const repoWebBridge = chrome.webview.hostObjects.repoWebBridge;
@@ -584,9 +550,6 @@ const getExpandedKeys = (category) => {
 };
 
 onMounted(() => {
-  // 检查是否显示欢迎弹窗
-  checkWelcomeModal();
-  
   // 默认选中第一个仓库
   if (repoOptions.value.length > 0) {
     selectedRepo.value = repoOptions.value[0].value;
