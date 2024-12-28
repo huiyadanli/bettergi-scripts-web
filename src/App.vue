@@ -30,7 +30,7 @@
               <icon-search />
             </template>
             <template #button-default>
-              <a-button type="primary">
+              <a-button type="primary" @click="handleSubscribe">
                 订阅
               </a-button>
             </template>
@@ -51,7 +51,7 @@
                       type="text"
                       size="mini"
                       style="position: absolute; right: 8px; top: 6px; color: #3370ff;"
-                      @click.stop="() => onTreeIconClick(nodeData)"
+                      @click.stop="() => handleSubscribe(nodeData)"
                     >
                       订阅
                     </a-button>
@@ -99,7 +99,7 @@
                     </template>
                     <template #operations="{ record }">
                       <a-space>
-                        <a-button v-if="category.name !== 'pathing'" type="primary" size="mini" @click="downloadScript(record)">
+                        <a-button v-if="category.name !== 'pathing'" type="primary" size="mini" @click="handleSubscribe(record)">
                           订阅
                         </a-button>
                         <a-button size="mini" @click="showDetails(record)">
