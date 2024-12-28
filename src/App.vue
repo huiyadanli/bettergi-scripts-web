@@ -82,18 +82,13 @@
                       </a-space>
                     </template>
                     <template #operations="{ record }">
-                      <a-space direction="vertical">
-                        <a-space>
-                          <a-button v-if="category.name !== 'pathing'" type="primary" size="mini" @click="downloadScript(record)">
-                            订阅
-                          </a-button>
-                          <a-button size="mini" @click="showDetails(record)">
-                            详情
-                          </a-button>
-                        </a-space>
-                        <a-typography-text type="secondary">
-                          该脚本订阅量：{{ record.subscribeCount || 0 }}
-                        </a-typography-text>
+                      <a-space>
+                        <a-button v-if="category.name !== 'pathing'" type="primary" size="mini" @click="downloadScript(record)">
+                          订阅
+                        </a-button>
+                        <a-button size="mini" @click="showDetails(record)">
+                          详情
+                        </a-button>
                       </a-space>
                     </template>
                   </a-table>
