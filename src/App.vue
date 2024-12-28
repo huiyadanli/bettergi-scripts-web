@@ -81,6 +81,9 @@
                         <a-tag v-for="tag in record.tags" :key="tag" :color="getTagColor(tag)">{{ tag }}</a-tag>
                       </a-space>
                     </template>
+                    <template #subscriptions="{ record }">
+                      {{ record.subscriptions || 0 }}
+                    </template>
                     <template #operations="{ record }">
                       <a-space>
                         <a-button v-if="category.name !== 'pathing'" type="primary" size="mini" @click="downloadScript(record)">
@@ -92,6 +95,11 @@
                       </a-space>
                     </template>
                   </a-table>
+                  <div style="text-align: right; margin-top: 8px;">
+                    <a-typography-text>
+                      总订阅量: {{ getTotalSubscriptions(category) }}
+                    </a-typography-text>
+                  </div>
                 </a-space>
               </a-col>
             </a-row>
