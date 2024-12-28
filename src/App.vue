@@ -16,8 +16,8 @@
           <a-typography-text v-if="repoUpdateTime">
             更新时间：{{ repoUpdateTime }}
           </a-typography-text>
-          <a href="https://bgi.huiyadan.com/doc.html" target="_blank" style="color: #3370ff">
-            点我申请提交你的脚本
+          <a href="https://bgi.huiyadan.com/dev/pr.html" target="_blank" style="color: #3370ff">
+            这里可以教你怎么提交你自己的脚本
           </a>
         </a-space>
 
