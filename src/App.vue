@@ -24,7 +24,7 @@
             placeholder="全局搜索"
             style="width: 320px"
             allow-clear
-            @search="handleGlobalSearch"
+            @search="() => window.find(globalSearch)"
           >
             <template #button-icon>
               <icon-search />
@@ -51,7 +51,7 @@
                       type="text"
                       size="mini"
                       style="position: absolute; right: 8px; top: 6px; color: #3370ff;"
-                      @click.stop="() => handleSubscribe(nodeData)"
+                      @click.stop="() => onTreeIconClick(nodeData)"
                     >
                       订阅
                     </a-button>
@@ -99,7 +99,7 @@
                     </template>
                     <template #operations="{ record }">
                       <a-space>
-                        <a-button v-if="category.name !== 'pathing'" type="primary" size="mini" @click="handleSubscribe(record)">
+                        <a-button v-if="category.name !== 'pathing'" type="primary" size="mini" @click="downloadScript(record)">
                           订阅
                         </a-button>
                         <a-button size="mini" @click="showDetails(record)">
