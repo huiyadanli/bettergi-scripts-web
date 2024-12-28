@@ -114,7 +114,7 @@
           </a-tab-pane>
         </a-tabs>
 
-        <a-empty v-else description="请选择一个仓库" />zz
+        <a-empty v-else description="请选择一个仓库" />
       </a-space>
     </a-layout-content>
 
