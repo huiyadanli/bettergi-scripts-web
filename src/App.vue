@@ -13,12 +13,13 @@
               {{ repo.label }}
             </a-option>
           </a-select>
+          <!-- 添加搜索框 -->
           <a-input
-            v-model="globalSearch"
-            placeholder="搜索所有内容"
+            v-model="treeSearchText"
+            placeholder="搜索左侧目录"
             style="width: 200px"
             allow-clear
-            @input="handleGlobalSearch"
+            @input="handleTreeSearch"
           />
           <a-typography-text v-if="repoUpdateTime">
             更新时间：{{ repoUpdateTime }}
@@ -30,7 +31,7 @@
             <a-row :gutter="16">
               <a-col :span="6" v-if="showTree(category)">
                 <a-tree
-                  :data="getCategoryTree(category)"
+                  :data="filteredTreeData[category.name] || getCategoryTree(category)"
                   :defaultExpandedKeys="getExpandedKeys(category)"
                   @select="(selectedKeys, event) => handleTreeSelect(selectedKeys, event, category.name)"
                 >
@@ -156,8 +157,42 @@ const mirrorUrls = [
   "https://mirror.ghproxy.com/{0}"
 ];
 
-// 添加全局搜索状态
-const globalSearch = ref('');
+// 添加树搜索相关的响应式变量
+const treeSearchText = ref('');
+const filteredTreeData = reactive({});
+
+// 添加树搜索处理函数
+const handleTreeSearch = () => {
+  repoData.value.forEach(category => {
+    if (showTree(category)) {
+      if (!treeSearchText.value) {
+        filteredTreeData[category.name] = getCategoryTree(category);
+      } else {
+        const searchText = treeSearchText.value.toLowerCase();
+        const originalTree = getCategoryTree(category);
+        filteredTreeData[category.name] = filterTreeNodes(originalTree, searchText);
+      }
+    }
+  });
+};
+
+// 添加树节点过滤函数
+const filterTreeNodes = (nodes, searchText) => {
+  return nodes.map(node => {
+    const newNode = { ...node };
+    if (newNode.children) {
+      newNode.children = filterTreeNodes(newNode.children, searchText);
+    }
+    
+    if (
+      newNode.title.toLowerCase().includes(searchText) ||
+      (newNode.children && newNode.children.length > 0)
+    ) {
+      return newNode;
+    }
+    return null;
+  }).filter(Boolean);
+};
 
 // 修改 repoOptions 的定义
 const repoOptions = computed(() => {
@@ -203,14 +238,6 @@ const columns = [
   { title: '操作', slotName: 'operations' },
 ];
 
-// 添加全局搜索处理函数
-const handleGlobalSearch = () => {
-  repoData.value.forEach(category => {
-    searchConditions[category.name].name = globalSearch.value;
-    filterData(category.name);
-  });
-};
-
 const GetRepoDataFromLocal = async () => {
   const repoWebBridge = chrome.webview.hostObjects.repoWebBridge;
   const jsonString = await repoWebBridge.GetRepoJson();
@@ -225,7 +252,7 @@ const fetchRepoData = async () => {
   // 清空现有数据
   repoDataRaw.value = [];
   repoUpdateTime.value = '';
-  globalSearch.value = ''; // 清空全局搜索
+  treeSearchText.value = ''; // 清空树搜索文本
   Object.keys(searchConditions).forEach(key => {
     searchConditions[key] = {
       name: '',
