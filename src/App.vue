@@ -158,18 +158,6 @@ const mirrorUrls = [
   "https://mirror.ghproxy.com/{0}"
 ];
 
-// 添加地图追踪搜索相关的响应式变量
-const pathingSearch = ref('');
-
-// 添加地图追踪搜索处理函数
-const handlePathingSearch = () => {
-  const pathingCategory = repoDataRaw.value.find(cat => cat.name === 'pathing');
-  if (pathingCategory) {
-    searchConditions['pathing'].name = pathingSearch.value;
-    filterData('pathing');
-  }
-};
-
 // 修改 repoOptions 的定义
 const repoOptions = computed(() => {
   if (mode === 'single') {
@@ -199,6 +187,18 @@ const loading = ref(false);
 
 // 添加新的响应式量
 const repoUpdateTime = ref('');
+
+// 添加地图追踪搜索相关的响应式变量
+const pathingSearch = ref('');
+
+// 添加地图追踪搜索处理函数
+const handlePathingSearch = () => {
+  const pathingCategory = repoData.value.find(c => c.name === 'pathing');
+  if (pathingCategory) {
+    searchConditions['pathing'].name = pathingSearch.value;
+    filterData('pathing');
+  }
+};
 
 const columns = [
   { 
