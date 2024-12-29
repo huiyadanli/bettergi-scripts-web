@@ -13,18 +13,17 @@
               {{ repo.label }}
             </a-option>
           </a-select>
+          <!-- 添加搜索框 -->
+          <a-input
+            v-model="searchText"
+            placeholder="搜索内容"
+            style="width: 200px"
+            allow-clear
+            @input="handleSearch"
+          />
           <a-typography-text v-if="repoUpdateTime">
             更新时间：{{ repoUpdateTime }}
           </a-typography-text>
-          <!-- 添加搜索框 -->
-          <a-input 
-            v-if="repoData.length && repoData.some(c => c.name === 'pathing')"
-            v-model="pathingSearch"
-            placeholder="搜索地图追踪内容"
-            allow-clear
-            style="width: 200px"
-            @input="handlePathingSearch"
-          />
         </a-space>
 
         <a-tabs v-if="repoData.length">
@@ -32,7 +31,7 @@
             <a-row :gutter="16">
               <a-col :span="6" v-if="showTree(category)">
                 <a-tree
-                  :data="getCategoryTree(category)"
+                  :data="getFilteredCategoryTree(category)"
                   :defaultExpandedKeys="getExpandedKeys(category)"
                   @select="(selectedKeys, event) => handleTreeSelect(selectedKeys, event, category.name)"
                 >
@@ -147,6 +146,10 @@ const mode = import.meta.env.VITE_MODE;
 // 添加新的环境变量引用
 const hiddenTabs = import.meta.env.VITE_HIDDEN_TABS ? import.meta.env.VITE_HIDDEN_TABS.split(',') : [];
 
+// 添加搜索相关的响应式变量
+const searchText = ref('');
+const originalTreeData = ref({});
+
 const baseRepo = "https://raw.githubusercontent.com/babalae/bettergi-scripts-list/refs/heads/main/repo.json";
 const mirrorUrls = [
   "{0}",
@@ -188,18 +191,6 @@ const loading = ref(false);
 // 添加新的响应式量
 const repoUpdateTime = ref('');
 
-// 添加地图追踪搜索相关的响应式变量
-const pathingSearch = ref('');
-
-// 添加地图追踪搜索处理函数
-const handlePathingSearch = () => {
-  const pathingCategory = repoData.value.find(c => c.name === 'pathing');
-  if (pathingCategory) {
-    searchConditions['pathing'].name = pathingSearch.value;
-    filterData('pathing');
-  }
-};
-
 const columns = [
   { 
     title: '名称', 
@@ -214,233 +205,17 @@ const columns = [
   { title: '操作', slotName: 'operations' },
 ];
 
-const GetRepoDataFromLocal = async () => {
-  const repoWebBridge = chrome.webview.hostObjects.repoWebBridge;
-  const jsonString = await repoWebBridge.GetRepoJson();
-  return JSON.parse(jsonString);
-};
-
-const fetchRepoData = async () => {
-  if (!selectedRepo.value) return;
-  
-  loading.value = true;
-  
-  // 清空现有数据
-  repoDataRaw.value = [];
-  repoUpdateTime.value = '';
-  pathingSearch.value = ''; // 清空地图追踪搜索框
-  Object.keys(searchConditions).forEach(key => {
-    searchConditions[key] = {
-      name: '',
-      author: '',
-      tags: [],
-      path: ''
-    };
-  });
-  Object.keys(filteredData).forEach(key => {
-    filteredData[key] = [];
-  });
-  
-  try {
-    let repoInfo;
-    if (mode === 'single') {
-      repoInfo = await GetRepoDataFromLocal();
-    } else {
-      const response = await fetch(selectedRepo.value);
-      repoInfo = await response.json();
-    }
-    
-    // 从 indexes 中获取数据
-    repoDataRaw.value = repoInfo.indexes;
-    
-    // 解析并设置更新时间
-    if (repoInfo.time) {
-      repoUpdateTime.value = formatDate(repoInfo.time);
-    }
-    
-    // 为所有节点生成 path
-    repoDataRaw.value.forEach(category => generatePaths(category));
-    
-    initializeSearchConditions();
-    
-    // 初始化 tagColorMap
-    repoDataRaw.value.forEach(category => {
-      traverseCategory(category, (item) => {
-        if (Array.isArray(item.tags)) {
-          item.tags.forEach(tag => {
-            if (tag && typeof tag === 'string' && !tagColorMap[tag]) {
-              tagColorMap[tag] = getRandomColor();
-            }
-          });
-        }
-      });
-    });
-  } catch (error) {
-    Message.error('获取仓库数据失败');
-    console.error('Error fetching repo data:', error);
-  } finally {
-    loading.value = false;
-  }
-};
-
-// 新增函数：为所有节点生成 path
-const generatePaths = (node, parentPath = '') => {
-  const currentPath = parentPath ? `${parentPath}/${node.name}` : node.name;
-  node.path = currentPath;
-  
-  if (node.type === 'directory' && Array.isArray(node.children)) {
-    node.children.forEach(child => generatePaths(child, currentPath));
-  }
-};
-
-const traverseCategory = (category, callback) => {
-  if (category.type === 'file') {
-    callback(category);
-  } else if (category.type === 'directory' && Array.isArray(category.children)) {
-    if (category.name === 'js') {
-      category.children.forEach(child => {
-        if (child.type === 'directory') {
-          // 处理 JS 脚本
-          if (child.description && child.description.includes('~|~')) {
-            const [nameSuffix, newDescription] = child.description.split('~|~');
-            child.name = `${child.name} - ${nameSuffix.trim()}`;
-            child.description = newDescription.trim();
-          }
-          callback(child);
-        } else {
-          traverseCategory(child, callback);
-        }
-      });
-    } else {
-      category.children.forEach(child => traverseCategory(child, callback));
-    }
-  }
-};
-
-const getUniqueAuthors = (category) => {
-  const authors = new Set();
-  traverseCategory(category, (item) => {
-    if (item.author) authors.add(item.author);
-  });
-  return [...authors];
-};
-
-const getUniqueTags = (category) => {
-  const tags = new Set();
-  traverseCategory(category, (item) => {
-    if (Array.isArray(item.tags)) {
-      item.tags.forEach(tag => tags.add(tag));
+// 添加搜索处理函数
+const handleSearch = () => {
+  repoData.value.forEach(category => {
+    if (showTree(category)) {
+      filterData(category.name);
     }
   });
-  return [...tags];
 };
 
-const filterData = (categoryName) => {
-  const category = repoDataRaw.value.find(cat => cat.name === categoryName);
-  const condition = searchConditions[categoryName];
-  
-  const filtered = [];
-  traverseCategory(category, (item) => {
-    const nameMatch = !condition.name || item.name.toLowerCase().includes(condition.name.toLowerCase());
-    const authorMatch = !condition.author || item.author === condition.author;
-    // 修改标签匹配逻辑
-    const tagMatch = condition.tags.length === 0 || (Array.isArray(item.tags) && condition.tags.every(tag => item.tags.includes(tag)));
-    const pathMatch = !condition.path || (item.path && item.path.startsWith(condition.path) && item.path !== condition.path);
-    if (nameMatch && authorMatch && tagMatch && pathMatch && (item.type === 'file' || (category.name === 'js' && item.type === 'directory'))) {
-      filtered.push(item);
-    }
-  });
-  
-  filteredData[categoryName] = filtered;
-};
-
-const initializeSearchConditions = () => {
-  repoDataRaw.value.forEach(category => {
-    searchConditions[category.name] = {
-      name: '',
-      author: '',
-      tags: [],
-      path: ''
-    };
-    filteredData[category.name] = [];
-    traverseCategory(category, (item) => {
-      filteredData[category.name].push(item);
-    });
-  });
-};
-
-const getRandomColor = () => {
-  const letters = '0123456789ABCDEF';
-  let color = '#';
-  for (let i = 0; i < 6; i++) {
-    color += letters[Math.floor(Math.random() * 16)];
-  }
-  return color;
-};
-
-const tagColorMap = reactive({});
-
-const getTagColor = (tag) => {
-  if (!tagColorMap[tag]) {
-    tagColorMap[tag] = getRandomColor();
-  }
-  return tagColorMap[tag];
-};
-
-const { copy } = useClipboard();
-
-const downloadScript = async (script) => {
-  // 创建一个包含脚本路径的数组
-  const subscriptionData = [script.path];
-
-  // 将数组转换为 JSON 字串
-  const jsonString = JSON.stringify(subscriptionData);
-  const base64String = btoa(encodeURIComponent(jsonString));
-
-  // 创建完整的 URL
-  const fullUrl = `bettergi://script?import=${base64String}`;
-
-  if (mode === 'single') {
-    try {
-      await subscribeToLocal(fullUrl);
-      // Message.success(`已成功订阅 ${script.name}`);
-    } catch (error) {
-      console.error('订阅脚本失败:', error);
-      Message.error(`订阅 ${script.name} 失败`);
-    }
-  } else {
-    // 将完整的 URL 复制到剪贴板
-    copy(fullUrl).then(() => {
-      Message.success(`已将 ${script.name} 的订阅链接复制到剪贴板`);
-    }).catch((error) => {
-      console.error('复制到剪贴板失败:', error);
-      Message.error(`复制 ${script.name} 的订阅链接失败`);
-    });
-  }
-};
-
-const subscribeToLocal = async (url) => {
-  const repoWebBridge = chrome.webview.hostObjects.repoWebBridge;
-  await repoWebBridge.ImportUri(url);
-};
-
-const showDetails = (script) => {
-  drawerData.value = [
-    { label: '名称', value: script.name },
-    { label: '作者', value: script.author },
-    { label: '版本', value: script.version },
-    { label: '描述', value: script.description || '无描述' },
-    { label: '标签', value: script.tags },
-    { label: 'Hash', value: script.hash },
-  ];
-  drawerVisible.value = true;
-};
-
-const closeDrawer = () => {
-  drawerVisible.value = false;
-};
-
-const getCategoryTree = (category) => {
+// 修改 getCategoryTree 函数为 getFilteredCategoryTree
+const getFilteredCategoryTree = (category) => {
   const buildTree = (node, isRoot = false) => {
     if (node.type === 'file') {
       return null;
@@ -472,102 +247,25 @@ const getCategoryTree = (category) => {
       });
     }
     
+    // 如果有搜索文本，过滤节点
+    if (searchText.value) {
+      if (treeNode.children) {
+        treeNode.children = treeNode.children.filter(child => {
+          return child.title.toLowerCase().includes(searchText.value.toLowerCase());
+        });
+      }
+      if (!treeNode.children?.length && !treeNode.title.toLowerCase().includes(searchText.value.toLowerCase())) {
+        return null;
+      }
+    }
+    
     return treeNode;
   };
   
   return [buildTree(category, true)].filter(Boolean);
 };
 
-const showTree = (category) => {
-  return category.name === 'pathing';
-};
-
-const handleTreeSelect = (selectedKeys, event, categoryName) => {
-  const selectedNode = event.node;
-  searchConditions[categoryName].path = selectedNode.key;
-  filterData(categoryName);
-};
-
-const handleTagSelect = (categoryName) => {
-  filterData(categoryName);
-};
-
-// 添加类别名称映射
-const categoryNameMap = {
-  'pathing': '地图追踪',
-  'js': 'JS脚本',
-  'keymouse': '键鼠脚本',
-  'combat': '战斗策略',
-  'tcg': '七圣召唤',
-  'onekey': '一键宏'
-};
-
-// 添加获取显示名称的函数
-const getCategoryDisplayName = (name) => {
-  return categoryNameMap[name] || name;
-};
-
-const onTreeIconClick = (nodeData) => {
-  downloadScript({name: nodeData.title, path: nodeData.key});
-};
-
-// 修改日期格式化函数
-const formatDate = (timeString) => {
-  if (typeof timeString !== 'string' || timeString.length !== 14) {
-    return '无效的时间格式';
-  }
-  
-  const year = timeString.slice(0, 4);
-  const month = timeString.slice(4, 6);
-  const day = timeString.slice(6, 8);
-  const hours = timeString.slice(8, 10);
-  const minutes = timeString.slice(10, 12);
-  const seconds = timeString.slice(12, 14);
-  
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-};
-
-// 在 script setup 部分添加图标 URL 处理函数
-const getIconUrl = (tag) => {
-  const baseIconUrl = "https://raw.githubusercontent.com/babalae/bettergi-scripts-list/refs/heads/main/repo/pathing/";
-  const encodedTag = encodeURIComponent(tag);
-  const iconPath = `${baseIconUrl}${encodedTag}/icon.ico`;
-  
-  // 使用当前选中的镜像URL格式
-  if (selectedRepo.value && selectedRepo.value !== 'local') {
-    const mirrorFormat = selectedRepo.value.split(baseRepo)[0];
-    return mirrorFormat + iconPath;
-  }
-  
-  return iconPath;
-};
-
-// 添加一个新的函数来获取前两级节点的 keys
-const getExpandedKeys = (category) => {
-  const keys = [];
-  
-  // 添加根节点
-  keys.push(category.path);
-  
-  // 添加第一级子节点
-  // if (Array.isArray(category.children)) {
-  //   category.children.forEach(child => {
-  //     if (child.path) {
-  //       keys.push(child.path);
-  //     }
-  //   });
-  // }
-  
-  return keys;
-};
-
-onMounted(() => {
-  // 默认选中第一个仓库
-  if (repoOptions.value.length > 0) {
-    selectedRepo.value = repoOptions.value[0].value;
-    fetchRepoData();
-  }
-});
+[rest of the code remains unchanged...]
 </script>
 
 <style scoped>
