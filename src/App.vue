@@ -16,6 +16,17 @@
           <a-typography-text v-if="repoUpdateTime">
             更新时间：{{ repoUpdateTime }}
           </a-typography-text>
+          <a-input
+            v-model="globalSearch"
+            placeholder="搜索所有内容"
+            allow-clear
+            style="width: 200px"
+            @input="handleGlobalSearch"
+          >
+            <template #prefix>
+              <icon-search />
+            </template>
+          </a-input>
         </a-space>
 
         <a-tabs v-if="repoData.length">
@@ -132,6 +143,7 @@
 import { ref, onMounted, reactive, computed, h } from 'vue';
 import { Message, Popover, Typography } from '@arco-design/web-vue';
 import { useClipboard } from '@vueuse/core';
+import { IconSearch } from '@arco-design/web-vue/es/icon';
 
 // 添加环境变量的引用
 const mode = import.meta.env.VITE_MODE;
@@ -148,6 +160,17 @@ const mirrorUrls = [
   "https://ghproxy.net/{0}",
   "https://mirror.ghproxy.com/{0}"
 ];
+
+// 添加全局搜索状态
+const globalSearch = ref('');
+
+// 添加全局搜索处理函数
+const handleGlobalSearch = () => {
+  repoData.value.forEach(category => {
+    searchConditions[category.name].name = globalSearch.value;
+    filterData(category.name);
+  });
+};
 
 // 修改 repoOptions 的定义
 const repoOptions = computed(() => {
@@ -207,6 +230,7 @@ const fetchRepoData = async () => {
   // 清空现有数据
   repoDataRaw.value = [];
   repoUpdateTime.value = '';
+  globalSearch.value = ''; // 清空全局搜索
   Object.keys(searchConditions).forEach(key => {
     searchConditions[key] = {
       name: '',
