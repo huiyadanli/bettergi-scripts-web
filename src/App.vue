@@ -13,14 +13,6 @@
               {{ repo.label }}
             </a-option>
           </a-select>
-          <!-- 添加搜索框 -->
-          <a-input
-            v-model="treeSearchText"
-            placeholder="搜索左侧目录"
-            style="width: 200px"
-            allow-clear
-            @input="handleTreeSearch"
-          />
           <a-typography-text v-if="repoUpdateTime">
             更新时间：{{ repoUpdateTime }}
           </a-typography-text>
@@ -30,6 +22,14 @@
           <a-tab-pane v-for="category in repoData" :key="category.name" :title="getCategoryDisplayName(category.name)">
             <a-row :gutter="16">
               <a-col :span="6" v-if="showTree(category)">
+                <!-- 添加搜索框 -->
+                <a-input-search
+                  v-model="treeSearchText"
+                  placeholder="搜索下方目录"
+                  style="margin-bottom: 8px;"
+                  allow-clear
+                  @input="handleTreeSearch"
+                />
                 <a-tree
                   :data="filteredTreeData[category.name] || getCategoryTree(category)"
                   :defaultExpandedKeys="getExpandedKeys(category)"
