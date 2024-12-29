@@ -16,17 +16,15 @@
           <a-typography-text v-if="repoUpdateTime">
             更新时间：{{ repoUpdateTime }}
           </a-typography-text>
-          <a-input
-            v-model="globalSearch"
-            placeholder="搜索所有内容"
+          <!-- 添加搜索框 -->
+          <a-input 
+            v-if="repoData.length && repoData.some(c => c.name === 'pathing')"
+            v-model="pathingSearch"
+            placeholder="搜索地图追踪内容"
             allow-clear
             style="width: 200px"
-            @input="handleGlobalSearch"
-          >
-            <template #prefix>
-              <icon-search />
-            </template>
-          </a-input>
+            @input="handlePathingSearch"
+          />
         </a-space>
 
         <a-tabs v-if="repoData.length">
@@ -143,7 +141,6 @@
 import { ref, onMounted, reactive, computed, h } from 'vue';
 import { Message, Popover, Typography } from '@arco-design/web-vue';
 import { useClipboard } from '@vueuse/core';
-import { IconSearch } from '@arco-design/web-vue/es/icon';
 
 // 添加环境变量的引用
 const mode = import.meta.env.VITE_MODE;
@@ -161,15 +158,16 @@ const mirrorUrls = [
   "https://mirror.ghproxy.com/{0}"
 ];
 
-// 添加全局搜索状态
-const globalSearch = ref('');
+// 添加地图追踪搜索相关的响应式变量
+const pathingSearch = ref('');
 
-// 添加全局搜索处理函数
-const handleGlobalSearch = () => {
-  repoData.value.forEach(category => {
-    searchConditions[category.name].name = globalSearch.value;
-    filterData(category.name);
-  });
+// 添加地图追踪搜索处理函数
+const handlePathingSearch = () => {
+  const pathingCategory = repoDataRaw.value.find(cat => cat.name === 'pathing');
+  if (pathingCategory) {
+    searchConditions['pathing'].name = pathingSearch.value;
+    filterData('pathing');
+  }
 };
 
 // 修改 repoOptions 的定义
@@ -230,7 +228,7 @@ const fetchRepoData = async () => {
   // 清空现有数据
   repoDataRaw.value = [];
   repoUpdateTime.value = '';
-  globalSearch.value = ''; // 清空全局搜索
+  pathingSearch.value = ''; // 清空地图追踪搜索框
   Object.keys(searchConditions).forEach(key => {
     searchConditions[key] = {
       name: '',
