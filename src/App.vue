@@ -29,6 +29,7 @@
                   style="margin-bottom: 8px;"
                   allow-clear
                   @input="handleTreeSearch"
+                  @clear="handleTreeSearch"
                 />
                 <a-tree
                   :data="filteredTreeData[category.name] || getCategoryTree(category)"
