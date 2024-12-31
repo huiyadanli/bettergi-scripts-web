@@ -13,14 +13,6 @@
               {{ repo.label }}
             </a-option>
           </a-select>
-          <!-- 添加搜索框 -->
-          <a-input
-            v-model="treeSearchText"
-            placeholder="搜索左侧目录"
-            style="width: 200px"
-            allow-clear
-            @input="handleTreeSearch"
-          />
           <a-typography-text v-if="repoUpdateTime">
             更新时间：{{ repoUpdateTime }}
           </a-typography-text>
@@ -31,7 +23,7 @@
             <a-row :gutter="16">
               <a-col :span="6" v-if="showTree(category)">
                 <a-tree
-                  :data="filteredTreeData[category.name] || getCategoryTree(category)"
+                  :data="getCategoryTree(category)"
                   :defaultExpandedKeys="getExpandedKeys(category)"
                   @select="(selectedKeys, event) => handleTreeSelect(selectedKeys, event, category.name)"
                 >
@@ -59,7 +51,7 @@
                       </a-select>
                     </a-col>
                     <a-col :span="8">
-                      <a-select v-model="searchConditions[category.name].tags" placeholder="选择标签" style="width: 100%;" allow-clear @change="handleTagSelect(category.name)" multiple>
+                      <a-select v-model="searchConditions[category.name].tags" placeholder="选择标签" style="width: 100%;" allow-clear @change="filterData(category.name)" multiple>
                         <a-option v-for="tag in getUniqueTags(category)" :key="tag" :value="tag">{{ tag }}</a-option>
                       </a-select>
                     </a-col>
@@ -157,43 +149,6 @@ const mirrorUrls = [
   "https://mirror.ghproxy.com/{0}"
 ];
 
-// 添加树搜索相关的响应式变量
-const treeSearchText = ref('');
-const filteredTreeData = reactive({});
-
-// 添加树搜索处理函数
-const handleTreeSearch = () => {
-  repoData.value.forEach(category => {
-    if (showTree(category)) {
-      if (!treeSearchText.value) {
-        filteredTreeData[category.name] = getCategoryTree(category);
-      } else {
-        const searchText = treeSearchText.value.toLowerCase();
-        const originalTree = getCategoryTree(category);
-        filteredTreeData[category.name] = filterTreeNodes(originalTree, searchText);
-      }
-    }
-  });
-};
-
-// 添加树节点过滤函数
-const filterTreeNodes = (nodes, searchText) => {
-  return nodes.map(node => {
-    const newNode = { ...node };
-    if (newNode.children) {
-      newNode.children = filterTreeNodes(newNode.children, searchText);
-    }
-    
-    if (
-      newNode.title.toLowerCase().includes(searchText) ||
-      (newNode.children && newNode.children.length > 0)
-    ) {
-      return newNode;
-    }
-    return null;
-  }).filter(Boolean);
-};
-
 // 修改 repoOptions 的定义
 const repoOptions = computed(() => {
   if (mode === 'single') {
@@ -252,7 +207,6 @@ const fetchRepoData = async () => {
   // 清空现有数据
   repoDataRaw.value = [];
   repoUpdateTime.value = '';
-  treeSearchText.value = ''; // 清空树搜索文本
   Object.keys(searchConditions).forEach(key => {
     searchConditions[key] = {
       name: '',
