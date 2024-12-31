@@ -51,7 +51,14 @@
                       </a-select>
                     </a-col>
                     <a-col :span="8">
-                      <a-select v-model="searchConditions[category.name].tags" placeholder="选择标签" style="width: 100%;" allow-clear @change="filterData(category.name)" multiple>
+                      <a-select 
+                        v-model="searchConditions[category.name].tags" 
+                        :placeholder="['pathing', 'js', 'combat', 'tcg'].includes(category.name) ? '标签' : '选择标签'" 
+                        style="width: 100%;" 
+                        allow-clear 
+                        :multiple="true" 
+                        @change="handleTagSelect(category.name)"
+                      >
                         <a-option v-for="tag in getUniqueTags(category)" :key="tag" :value="tag">{{ tag }}</a-option>
                       </a-select>
                     </a-col>
@@ -467,6 +474,10 @@ const handleTreeSelect = (selectedKeys, event, categoryName) => {
 };
 
 const handleTagSelect = (categoryName) => {
+  // 对于特定类别，不做任何处理
+  if (['pathing', 'js', 'combat', 'tcg'].includes(categoryName)) {
+    return;
+  }
   filterData(categoryName);
 };
 
