@@ -19,7 +19,12 @@
         </a-space>
 
         <a-tabs v-if="repoData.length">
-          <a-tab-pane v-for="category in repoData" :key="category.name" :title="getCategoryDisplayName(category.name)">
+          <a-tab-pane
+            v-for="category in repoData"
+            :key="category.name"
+            :title="getCategoryDisplayName(category.name)"
+            @tab-click="onTabClick(category.name)"
+          >
             <a-row :gutter="16">
               <a-col :span="6" v-if="showTree(category)">
                 <a-tree
@@ -51,14 +56,12 @@
                       </a-select>
                     </a-col>
                     <a-col :span="8">
-                      <a-select 
-                        v-model="searchConditions[category.name].tags" 
-                        :placeholder="['pathing', 'js', 'combat', 'tcg'].includes(category.name) ? '标签' : '选择标签'" 
+                      <a-select v-if="category.name === 'pathing' || category.name === 'js' || category.name === 'combat' || category.name === 'tcg'" 
+                        v-model="searchConditions[category.name].tags"
                         style="width: 100%;" 
                         allow-clear 
-                        :multiple="true" 
-                        @change="handleTagSelect(category.name)"
-                      >
+                        @change="filterData(category.name)" 
+                        multiple>
                         <a-option v-for="tag in getUniqueTags(category)" :key="tag" :value="tag">{{ tag }}</a-option>
                       </a-select>
                     </a-col>
@@ -137,7 +140,7 @@
 
 <script setup>
 import { ref, onMounted, reactive, computed, h } from 'vue';
-import { Message, Popover, Typography } from '@arco-design/web-vue';
+import { Message } from '@arco-design/web-vue';
 import { useClipboard } from '@vueuse/core';
 
 // 添加环境变量的引用
@@ -192,19 +195,12 @@ const columns = [
     dataIndex: 'name', 
     slotName: 'name',
     ellipsis: true,
-    tooltip: false // 关闭默认的 tooltip
   },
   { title: '作者', dataIndex: 'author', width: 200  },
   { title: '版本', dataIndex: 'version', width: 100 },
   { title: '标签', dataIndex: 'tags', slotName: 'tags' },
   { title: '操作', slotName: 'operations' },
 ];
-
-const GetRepoDataFromLocal = async () => {
-  const repoWebBridge = chrome.webview.hostObjects.repoWebBridge;
-  const jsonString = await repoWebBridge.GetRepoJson();
-  return JSON.parse(jsonString);
-};
 
 const fetchRepoData = async () => {
   if (!selectedRepo.value) return;
@@ -235,31 +231,14 @@ const fetchRepoData = async () => {
       repoInfo = await response.json();
     }
     
-    // 从 indexes 中获取数据
     repoDataRaw.value = repoInfo.indexes;
     
-    // 解析并设置更新时间
     if (repoInfo.time) {
       repoUpdateTime.value = formatDate(repoInfo.time);
     }
     
-    // 为所有节点生成 path
-    repoDataRaw.value.forEach(category => generatePaths(category));
-    
     initializeSearchConditions();
     
-    // 初始化 tagColorMap
-    repoDataRaw.value.forEach(category => {
-      traverseCategory(category, (item) => {
-        if (Array.isArray(item.tags)) {
-          item.tags.forEach(tag => {
-            if (tag && typeof tag === 'string' && !tagColorMap[tag]) {
-              tagColorMap[tag] = getRandomColor();
-            }
-          });
-        }
-      });
-    });
   } catch (error) {
     Message.error('获取仓库数据失败');
     console.error('Error fetching repo data:', error);
@@ -275,30 +254,6 @@ const generatePaths = (node, parentPath = '') => {
   
   if (node.type === 'directory' && Array.isArray(node.children)) {
     node.children.forEach(child => generatePaths(child, currentPath));
-  }
-};
-
-const traverseCategory = (category, callback) => {
-  if (category.type === 'file') {
-    callback(category);
-  } else if (category.type === 'directory' && Array.isArray(category.children)) {
-    if (category.name === 'js') {
-      category.children.forEach(child => {
-        if (child.type === 'directory') {
-          // 处理 JS 脚本
-          if (child.description && child.description.includes('~|~')) {
-            const [nameSuffix, newDescription] = child.description.split('~|~');
-            child.name = `${child.name} - ${nameSuffix.trim()}`;
-            child.description = newDescription.trim();
-          }
-          callback(child);
-        } else {
-          traverseCategory(child, callback);
-        }
-      });
-    } else {
-      category.children.forEach(child => traverseCategory(child, callback));
-    }
   }
 };
 
@@ -328,9 +283,9 @@ const filterData = (categoryName) => {
   traverseCategory(category, (item) => {
     const nameMatch = !condition.name || item.name.toLowerCase().includes(condition.name.toLowerCase());
     const authorMatch = !condition.author || item.author === condition.author;
-    // 修改标签匹配逻辑
     const tagMatch = condition.tags.length === 0 || (Array.isArray(item.tags) && condition.tags.every(tag => item.tags.includes(tag)));
     const pathMatch = !condition.path || (item.path && item.path.startsWith(condition.path) && item.path !== condition.path);
+    
     if (nameMatch && authorMatch && tagMatch && pathMatch && (item.type === 'file' || (category.name === 'js' && item.type === 'directory'))) {
       filtered.push(item);
     }
@@ -354,200 +309,25 @@ const initializeSearchConditions = () => {
   });
 };
 
-const getRandomColor = () => {
-  const letters = '0123456789ABCDEF';
-  let color = '#';
-  for (let i = 0; i < 6; i++) {
-    color += letters[Math.floor(Math.random() * 16)];
-  }
-  return color;
-};
-
-const tagColorMap = reactive({});
-
-const getTagColor = (tag) => {
-  if (!tagColorMap[tag]) {
-    tagColorMap[tag] = getRandomColor();
-  }
-  return tagColorMap[tag];
-};
-
-const { copy } = useClipboard();
-
-const downloadScript = async (script) => {
-  // 创建一个包含脚本路径的数组
-  const subscriptionData = [script.path];
-
-  // 将数组转换为 JSON 字串
-  const jsonString = JSON.stringify(subscriptionData);
-  const base64String = btoa(encodeURIComponent(jsonString));
-
-  // 创建完整的 URL
-  const fullUrl = `bettergi://script?import=${base64String}`;
-
-  if (mode === 'single') {
-    try {
-      await subscribeToLocal(fullUrl);
-      // Message.success(`已成功订阅 ${script.name}`);
-    } catch (error) {
-      console.error('订阅脚本失败:', error);
-      Message.error(`订阅 ${script.name} 失败`);
-    }
-  } else {
-    // 将完整的 URL 复制到剪贴板
-    copy(fullUrl).then(() => {
-      Message.success(`已将 ${script.name} 的订阅链接复制到剪贴板`);
-    }).catch((error) => {
-      console.error('复制到剪贴板失败:', error);
-      Message.error(`复制 ${script.name} 的订阅链接失败`);
-    });
+const traverseCategory = (category, callback) => {
+  if (category.type === 'file') {
+    callback(category);
+  } else if (category.type === 'directory' && Array.isArray(category.children)) {
+    category.children.forEach(child => traverseCategory(child, callback));
   }
 };
 
-const subscribeToLocal = async (url) => {
-  const repoWebBridge = chrome.webview.hostObjects.repoWebBridge;
-  await repoWebBridge.ImportUri(url);
-};
-
-const showDetails = (script) => {
-  drawerData.value = [
-    { label: '名称', value: script.name },
-    { label: '作者', value: script.author },
-    { label: '版本', value: script.version },
-    { label: '描述', value: script.description || '无描述' },
-    { label: '标签', value: script.tags },
-    { label: 'Hash', value: script.hash },
-  ];
-  drawerVisible.value = true;
-};
-
-const closeDrawer = () => {
-  drawerVisible.value = false;
-};
-
-const getCategoryTree = (category) => {
-  const buildTree = (node, isRoot = false) => {
-    if (node.type === 'file') {
-      return null;
-    }
-    
-    // 创建基本树节点
-    const treeNode = {
-      title: isRoot ? getCategoryDisplayName(node.name) : node.name,
-      key: node.path,
-      children: Array.isArray(node.children)
-        ? node.children
-            .map(child => buildTree(child, false))
-            .filter(Boolean)
-        : undefined,
-      selectable: true
-    };
-    
-    // 只在非本地模式且非根节点时添加图标
-    if (!isRoot && mode !== 'single') {
-      treeNode.icon = () => h('img', {
-        src: getIconUrl(node.name),
-        style: {
-          width: '22px',
-          height: '22px',
-        },
-        onError: (e) => {
-          e.target.style.display = 'none';
-        }
-      });
-    }
-    
-    return treeNode;
-  };
-  
-  return [buildTree(category, true)].filter(Boolean);
-};
-
-const showTree = (category) => {
-  return category.name === 'pathing';
-};
-
-const handleTreeSelect = (selectedKeys, event, categoryName) => {
-  const selectedNode = event.node;
-  searchConditions[categoryName].path = selectedNode.key;
-  filterData(categoryName);
-};
-
-const handleTagSelect = (categoryName) => {
-  // 对于特定类别，不做任何处理
-  if (['pathing', 'js', 'combat', 'tcg'].includes(categoryName)) {
-    return;
-  }
-  filterData(categoryName);
-};
-
-// 添加类别名称映射
-const categoryNameMap = {
-  'pathing': '地图追踪',
-  'js': 'JS脚本',
-  'keymouse': '键鼠脚本',
-  'combat': '战斗策略',
-  'tcg': '七圣召唤',
-  'onekey': '一键宏'
-};
-
-// 添加获取显示名称的函数
 const getCategoryDisplayName = (name) => {
   return categoryNameMap[name] || name;
 };
 
-const onTreeIconClick = (nodeData) => {
-  downloadScript({name: nodeData.title, path: nodeData.key});
-};
-
-// 修改日期格式化函数
-const formatDate = (timeString) => {
-  if (typeof timeString !== 'string' || timeString.length !== 14) {
-    return '无效的时间格式';
+// 处理标签选择操作
+const onTabClick = (name) => {
+  // 在这里处理标签选择相关逻辑
+  // 例如：重置搜索条件本质上等同于避免标签抖动
+  if (searchConditions[name]) {
+    searchConditions[name].tags = [];
   }
-  
-  const year = timeString.slice(0, 4);
-  const month = timeString.slice(4, 6);
-  const day = timeString.slice(6, 8);
-  const hours = timeString.slice(8, 10);
-  const minutes = timeString.slice(10, 12);
-  const seconds = timeString.slice(12, 14);
-  
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-};
-
-// 在 script setup 部分添加图标 URL 处理函数
-const getIconUrl = (tag) => {
-  const baseIconUrl = "https://raw.githubusercontent.com/babalae/bettergi-scripts-list/refs/heads/main/repo/pathing/";
-  const encodedTag = encodeURIComponent(tag);
-  const iconPath = `${baseIconUrl}${encodedTag}/icon.ico`;
-  
-  // 使用当前选中的镜像URL格式
-  if (selectedRepo.value && selectedRepo.value !== 'local') {
-    const mirrorFormat = selectedRepo.value.split(baseRepo)[0];
-    return mirrorFormat + iconPath;
-  }
-  
-  return iconPath;
-};
-
-// 添加一个新的函数来获取前两级节点的 keys
-const getExpandedKeys = (category) => {
-  const keys = [];
-  
-  // 添加根节点
-  keys.push(category.path);
-  
-  // 添加第一级子节点
-  // if (Array.isArray(category.children)) {
-  //   category.children.forEach(child => {
-  //     if (child.path) {
-  //       keys.push(child.path);
-  //     }
-  //   });
-  // }
-  
-  return keys;
 };
 
 onMounted(() => {
