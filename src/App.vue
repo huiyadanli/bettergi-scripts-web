@@ -60,12 +60,12 @@
                       </a-select>
                     </a-col>
                     <a-col :span="8">
-                      <a-select v-model="searchConditions[category.name].tags" placeholder="选择标签" style="width: 100%;" allow-clear @change="handleTagSelect(category.name)" multiple>
+                      <a-select v-model="searchConditions[category.name].tags" placeholder="选择标签" style="width: 100%;" :filter-option="handleTagFilter" allow-clear @change="handleTagSelect(category.name)" multiple>
                         <a-option v-for="tag in getUniqueTags(category)" :key="tag" :value="tag">{{ tag }}</a-option>
                       </a-select>
                     </a-col>
                   </a-row>
-                  <a-table :columns="columns" :data="filteredData[category.name]" :pagination="{ pageSize: 20 }">
+                  <a-table :columns="columns" :data="filteredData[category.name]" :pagination="{ pageSize, showPageSize: true }" @page-size-change="handlePageSizeChange">
                     <template #name="{ record }">
                       <a-popover
                         position="right"
@@ -83,8 +83,11 @@
                       </span>
                     </template>
                     <template #tags="{ record }">
-                      <a-space>
-                        <a-tag v-for="tag in record.tags" :key="tag" :color="getTagColor(tag)">{{ tag }}</a-tag>
+                      <a-space :style="{
+                        flexWrap: 'wrap',
+                        rowGap: '8px'
+                      }">
+                        <a-tag v-for="tag in record.tags" :key="tag" :color="getTagColor(tag)" style="cursor: pointer" @click="handleTagClick(tag, category.name)">{{ tag }}</a-tag>
                       </a-space>
                     </template>
                     <template #operations="{ record }">
@@ -141,6 +144,7 @@
 import { ref, onMounted, reactive, computed, h } from 'vue';
 import { Message, Popover, Typography } from '@arco-design/web-vue';
 import { useClipboard } from '@vueuse/core';
+import { match } from 'pinyin-pro';
 
 // 添加环境变量的引用
 const mode = import.meta.env.VITE_MODE;
@@ -157,6 +161,18 @@ const mirrorUrls = [
   "https://ghproxy.net/{0}",
   "https://mirror.ghproxy.com/{0}"
 ];
+
+const isPinyinMatch = (text, search) => {
+  const searchLower = search.toLowerCase();
+  const textLower = text.toLowerCase();
+
+  if (textLower.includes(searchLower)) {
+    return true;
+  }
+
+  const pinyinMatch = match(textLower, searchLower);
+  return !!pinyinMatch
+};
 
 // 添加树搜索相关的响应式变量
 const treeSearchText = ref('');
@@ -186,7 +202,7 @@ const filterTreeNodes = (nodes, searchText) => {
     }
     
     if (
-      newNode.title.toLowerCase().includes(searchText) ||
+        isPinyinMatch(newNode.title, searchText) ||
       (newNode.children && newNode.children.length > 0)
     ) {
       return newNode;
@@ -225,10 +241,16 @@ const loading = ref(false);
 // 添加新的响应式量
 const repoUpdateTime = ref('');
 
+const pageSize = ref(20);
+
+const handlePageSizeChange = (newPageSize) => {
+  pageSize.value = newPageSize;
+};
+
 const columns = [
-  { 
-    title: '名称', 
-    dataIndex: 'name', 
+  {
+    title: '名称',
+    dataIndex: 'name',
     slotName: 'name',
     ellipsis: true,
     tooltip: false // 关闭默认的 tooltip
@@ -366,7 +388,7 @@ const filterData = (categoryName) => {
   
   const filtered = [];
   traverseCategory(category, (item) => {
-    const nameMatch = !condition.name || item.name.toLowerCase().includes(condition.name.toLowerCase());
+    const nameMatch = !condition.name || isPinyinMatch(item.name, condition.name);
     const authorMatch = !condition.author || item.author === condition.author;
     // 修改标签匹配逻辑
     const tagMatch = condition.tags.length === 0 || (Array.isArray(item.tags) && condition.tags.every(tag => item.tags.includes(tag)));
@@ -517,6 +539,19 @@ const handleTagSelect = (categoryName) => {
   filterData(categoryName);
 };
 
+const handleTagClick = (tag, categoryName) => {
+  if (!searchConditions[categoryName].tags.includes(tag)) {
+    searchConditions[categoryName].tags.push(tag);
+  } else {
+    searchConditions[categoryName].tags = searchConditions[categoryName].tags.filter(t => t !== tag);
+  }
+  filterData(categoryName);
+}
+
+const handleTagFilter = (value, option) => {
+  return isPinyinMatch(option.value, value);
+};
+
 // 添加类别名称映射
 const categoryNameMap = {
   'pathing': '地图追踪',
@@ -548,7 +583,7 @@ const formatDate = (timeString) => {
   const hours = timeString.slice(8, 10);
   const minutes = timeString.slice(10, 12);
   const seconds = timeString.slice(12, 14);
-  
+
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
