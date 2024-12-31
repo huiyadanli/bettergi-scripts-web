@@ -60,7 +60,7 @@
                       </a-select>
                     </a-col>
                     <a-col :span="8">
-                      <a-select v-model="searchConditions[category.name].tags" placeholder="选择标签" style="width: 100%;" allow-clear @change="handleTagSelect(category.name)" multiple>
+                      <a-select v-model="searchConditions[category.name].tags" placeholder="选择标签" style="width: 100%;" allow-clear @change="filterData(category.name)" multiple>
                         <a-option v-for="tag in getUniqueTags(category)" :key="tag" :value="tag">{{ tag }}</a-option>
                       </a-select>
                     </a-col>
