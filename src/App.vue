@@ -19,12 +19,7 @@
         </a-space>
 
         <a-tabs v-if="repoData.length">
-          <a-tab-pane
-            v-for="category in repoData"
-            :key="category.name"
-            :title="getCategoryDisplayName(category.name)"
-            @tab-click="onTabClick(category.name)"
-          >
+          <a-tab-pane v-for="category in repoData" :key="category.name" :title="getCategoryDisplayName(category.name)">
             <a-row :gutter="16">
               <a-col :span="6" v-if="showTree(category)">
                 <a-tree
@@ -55,13 +50,8 @@
                         <a-option v-for="author in getUniqueAuthors(category)" :key="author" :value="author">{{ author }}</a-option>
                       </a-select>
                     </a-col>
-                    <a-col :span="8">
-                      <a-select v-if="category.name === 'pathing' || category.name === 'js' || category.name === 'combat' || category.name === 'tcg'" 
-                        v-model="searchConditions[category.name].tags"
-                        style="width: 100%;" 
-                        allow-clear 
-                        @change="filterData(category.name)" 
-                        multiple>
+                    <a-col v-if="category.name !== 'pathing' && category.name !== 'js' && category.name !== 'combat' && category.name !== 'tcg'" :span="8">
+                      <a-select v-model="searchConditions[category.name].tags" placeholder="选择标签" style="width: 100%;" allow-clear @change="filterData(category.name)" multiple>
                         <a-option v-for="tag in getUniqueTags(category)" :key="tag" :value="tag">{{ tag }}</a-option>
                       </a-select>
                     </a-col>
@@ -122,7 +112,6 @@
       <a-descriptions :data="drawerData" layout="vertical" bordered />
     </a-drawer>
 
-    <!-- 添加加载模态框 -->
     <a-modal
       :visible="loading"
       :footer="false"
@@ -143,9 +132,7 @@ import { ref, onMounted, reactive, computed, h } from 'vue';
 import { Message } from '@arco-design/web-vue';
 import { useClipboard } from '@vueuse/core';
 
-// 添加环境变量的引用
 const mode = import.meta.env.VITE_MODE;
-// 添加新的环境变量引用
 const hiddenTabs = import.meta.env.VITE_HIDDEN_TABS ? import.meta.env.VITE_HIDDEN_TABS.split(',') : [];
 
 const baseRepo = "https://raw.githubusercontent.com/babalae/bettergi-scripts-list/refs/heads/main/repo.json";
@@ -159,7 +146,7 @@ const mirrorUrls = [
   "https://mirror.ghproxy.com/{0}"
 ];
 
-// 修改 repoOptions 的定义
+// 计算仓库选项
 const repoOptions = computed(() => {
   if (mode === 'single') {
     return [{ label: "BetterGI 本地仓库", value: "local" }];
@@ -172,21 +159,15 @@ const repoOptions = computed(() => {
 });
 
 const selectedRepo = ref('');
-// 修改 repoData 的定义为 computed 属性
 const repoData = computed(() => {
   return repoDataRaw.value.filter(category => !hiddenTabs.includes(category.name));
 });
-// 添加一个新的 ref 来存储原始数据
 const repoDataRaw = ref([]);
 const drawerVisible = ref(false);
 const drawerData = ref([]);
 const searchConditions = reactive({});
 const filteredData = reactive({});
-
-// 添加 loading 状态
 const loading = ref(false);
-
-// 添加新的响应式量
 const repoUpdateTime = ref('');
 
 const columns = [
@@ -202,12 +183,18 @@ const columns = [
   { title: '操作', slotName: 'operations' },
 ];
 
+// 获取本地仓库数据
+const GetRepoDataFromLocal = async () => {
+  const repoWebBridge = chrome.webview.hostObjects.repoWebBridge;
+  const jsonString = await repoWebBridge.GetRepoJson();
+  return JSON.parse(jsonString);
+};
+
 const fetchRepoData = async () => {
   if (!selectedRepo.value) return;
   
   loading.value = true;
   
-  // 清空现有数据
   repoDataRaw.value = [];
   repoUpdateTime.value = '';
   Object.keys(searchConditions).forEach(key => {
@@ -237,8 +224,9 @@ const fetchRepoData = async () => {
       repoUpdateTime.value = formatDate(repoInfo.time);
     }
     
-    initializeSearchConditions();
+    repoDataRaw.value.forEach(category => generatePaths(category));
     
+    initializeSearchConditions();
   } catch (error) {
     Message.error('获取仓库数据失败');
     console.error('Error fetching repo data:', error);
@@ -247,13 +235,35 @@ const fetchRepoData = async () => {
   }
 };
 
-// 新增函数：为所有节点生成 path
 const generatePaths = (node, parentPath = '') => {
   const currentPath = parentPath ? `${parentPath}/${node.name}` : node.name;
   node.path = currentPath;
   
   if (node.type === 'directory' && Array.isArray(node.children)) {
     node.children.forEach(child => generatePaths(child, currentPath));
+  }
+};
+
+const traverseCategory = (category, callback) => {
+  if (category.type === 'file') {
+    callback(category);
+  } else if (category.type === 'directory' && Array.isArray(category.children)) {
+    if (category.name === 'js') {
+      category.children.forEach(child => {
+        if (child.type === 'directory') {
+          if (child.description && child.description.includes('~|~')) {
+            const [nameSuffix, newDescription] = child.description.split('~|~');
+            child.name = `${child.name} - ${nameSuffix.trim()}`;
+            child.description = newDescription.trim();
+          }
+          callback(child);
+        } else {
+          traverseCategory(child, callback);
+        }
+      });
+    } else {
+      category.children.forEach(child => traverseCategory(child, callback));
+    }
   }
 };
 
@@ -309,29 +319,155 @@ const initializeSearchConditions = () => {
   });
 };
 
-const traverseCategory = (category, callback) => {
-  if (category.type === 'file') {
-    callback(category);
-  } else if (category.type === 'directory' && Array.isArray(category.children)) {
-    category.children.forEach(child => traverseCategory(child, callback));
+const getRandomColor = () => {
+  const letters = '0123456789ABCDEF';
+  let color = '#';
+  for (let i = 0; i < 6; i++) {
+    color += letters[Math.floor(Math.random() * 16)];
+  }
+  return color;
+};
+
+const tagColorMap = reactive({});
+
+const getTagColor = (tag) => {
+  if (!tagColorMap[tag]) {
+    tagColorMap[tag] = getRandomColor();
+  }
+  return tagColorMap[tag];
+};
+
+const { copy } = useClipboard();
+
+const downloadScript = async (script) => {
+  const subscriptionData = [script.path];
+  const jsonString = JSON.stringify(subscriptionData);
+  const base64String = btoa(encodeURIComponent(jsonString));
+  const fullUrl = `bettergi://script?import=${base64String}`;
+
+  if (mode === 'single') {
+    try {
+      await subscribeToLocal(fullUrl);
+    } catch (error) {
+      console.error('订阅脚本失败:', error);
+      Message.error(`订阅 ${script.name} 失败`);
+    }
+  } else {
+    copy(fullUrl).then(() => {
+      Message.success(`已将 ${script.name} 的订阅链接复制到剪贴板`);
+    }).catch((error) => {
+      console.error('复制到剪贴板失败:', error);
+      Message.error(`复制 ${script.name} 的订阅链接失败`);
+    });
   }
 };
 
-const getCategoryDisplayName = (name) => {
-  return categoryNameMap[name] || name;
+const subscribeToLocal = async (url) => {
+  const repoWebBridge = chrome.webview.hostObjects.repoWebBridge;
+  await repoWebBridge.ImportUri(url);
 };
 
-// 处理标签选择操作
-const onTabClick = (name) => {
-  // 在这里处理标签选择相关逻辑
-  // 例如：重置搜索条件本质上等同于避免标签抖动
-  if (searchConditions[name]) {
-    searchConditions[name].tags = [];
+const showDetails = (script) => {
+  drawerData.value = [
+    { label: '名称', value: script.name },
+    { label: '作者', value: script.author },
+    { label: '版本', value: script.version },
+    { label: '描述', value: script.description || '无描述' },
+    { label: '标签', value: script.tags },
+    { label: 'Hash', value: script.hash },
+  ];
+  drawerVisible.value = true;
+};
+
+const closeDrawer = () => {
+  drawerVisible.value = false;
+};
+
+const getCategoryTree = (category) => {
+  const buildTree = (node, isRoot = false) => {
+    if (node.type === 'file') {
+      return null;
+    }
+    
+    const treeNode = {
+      title: isRoot ? getCategoryDisplayName(node.name) : node.name,
+      key: node.path,
+      children: Array.isArray(node.children)
+        ? node.children
+            .map(child => buildTree(child, false))
+            .filter(Boolean)
+        : undefined,
+      selectable: true
+    };
+
+    if (!isRoot && mode !== 'single') {
+      treeNode.icon = () => h('img', {
+        src: getIconUrl(node.name),
+        style: {
+          width: '22px',
+          height: '22px',
+        },
+        onError: (e) => {
+          e.target.style.display = 'none';
+        }
+      });
+    }
+    
+    return treeNode;
+  };
+  
+  return [buildTree(category, true)].filter(Boolean);
+};
+
+const showTree = (category) => {
+  return category.name === 'pathing';
+};
+
+const handleTreeSelect = (selectedKeys, event, categoryName) => {
+  const selectedNode = event.node;
+  searchConditions[categoryName].path = selectedNode.key;
+  filterData(categoryName);
+};
+
+const onTreeIconClick = (nodeData) => {
+  downloadScript({ name: nodeData.title, path: nodeData.key });
+};
+
+const formatDate = (timeString) => {
+  if (typeof timeString !== 'string' || timeString.length !== 14) {
+    return '无效的时间格式';
   }
+  
+  const year = timeString.slice(0, 4);
+  const month = timeString.slice(4, 6);
+  const day = timeString.slice(6, 8);
+  const hours = timeString.slice(8, 10);
+  const minutes = timeString.slice(10, 12);
+  const seconds = timeString.slice(12, 14);
+  
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
+const getIconUrl = (tag) => {
+  const baseIconUrl = "https://raw.githubusercontent.com/babalae/bettergi-scripts-list/refs/heads/main/repo/pathing/";
+  const encodedTag = encodeURIComponent(tag);
+  const iconPath = `${baseIconUrl}${encodedTag}/icon.ico`;
+  
+  if (selectedRepo.value && selectedRepo.value !== 'local') {
+    const mirrorFormat = selectedRepo.value.split(baseRepo)[0];
+    return mirrorFormat + iconPath;
+  }
+  
+  return iconPath;
+};
+
+const getExpandedKeys = (category) => {
+  const keys = [];
+  keys.push(category.path);
+  return keys;
 };
 
 onMounted(() => {
-  // 默认选中第一个仓库
   if (repoOptions.value.length > 0) {
     selectedRepo.value = repoOptions.value[0].value;
     fetchRepoData();
@@ -345,7 +481,6 @@ onMounted(() => {
   padding: 16px;
 }
 
-/* 添加图标相关样式 */
 :deep(.arco-tree-node-title) {
   display: flex;
   align-items: center;
@@ -355,7 +490,6 @@ onMounted(() => {
   margin-right: 4px;
 }
 
-/* 移除之前为表格单元格添加的样式 */
 .arco-table-td {
   max-width: none;
   white-space: normal;
