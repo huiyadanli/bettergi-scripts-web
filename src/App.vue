@@ -3,12 +3,7 @@
     <a-layout-content :style="{ padding: '20px 50px' }">
       <a-space direction="vertical" size="large" fill>
         <a-space>
-          <a-select
-            v-model="selectedRepo"
-            placeholder="选择脚本仓库"
-            style="width: 320px"
-            @change="fetchRepoData"
-          >
+          <a-select v-model="selectedRepo" placeholder="选择脚本仓库" style="width: 320px" @change="fetchRepoData">
             <a-option v-for="(repo, index) in repoOptions" :key="index" :value="repo.value">
               {{ repo.label }}
             </a-option>
@@ -23,84 +18,91 @@
             <a-row :gutter="16">
               <a-col :span="6" v-if="showTree(category)">
                 <!-- 添加搜索框 -->
-                <a-input-search
-                  v-model="treeSearchText"
-                  placeholder="搜索下方目录"
-                  style="margin-bottom: 8px;"
-                  allow-clear
-                  @input="handleTreeSearch"
-                  @clear="handleTreeSearch"
-                />
-                <a-tree
-                  :data="filteredTreeData[category.name] || getCategoryTree(category)"
-                  :defaultExpandedKeys="getExpandedKeys(category)"
-                  @select="(selectedKeys, event) => handleTreeSelect(selectedKeys, event, category.name)"
-                >
-                  <template #extra="nodeData">
-                    <a-button
-                      type="text"
-                      size="mini"
-                      style="position: absolute; right: 8px; top: 6px; color: #3370ff;"
-                      @click.stop="() => onTreeIconClick(nodeData)"
-                    >
-                      订阅
-                    </a-button>
-                  </template>
-                </a-tree>
+                <a-input-search v-model="treeSearchText" placeholder="搜索下方目录" style="margin-bottom: 8px;" allow-clear
+                  @input="handleTreeSearch" @clear="handleTreeSearch" />
+                <!-- 添加滚动容器 -->
+                <div
+                  style="height: calc(100vh - 200px); overflow-y: auto; overflow-x: hidden; border-right: 1px solid #e5e5e5;">
+                  <a-tree :data="filteredTreeData[category.name] || getCategoryTree(category)"
+                    :defaultExpandedKeys="getExpandedKeys(category)"
+                    @select="(selectedKeys, event) => handleTreeSelect(selectedKeys, event, category.name)">
+                    <template #extra="nodeData">
+                      <a-button type="text" size="mini"
+                        style="position: absolute; right: 8px; top: 6px; color: #3370ff;"
+                        @click.stop="() => onTreeIconClick(nodeData)">
+                        订阅
+                      </a-button>
+                    </template>
+                  </a-tree>
+                </div>
               </a-col>
               <a-col :span="showTree(category) ? 18 : 24">
+
                 <a-space direction="vertical" size="medium" style="width: 100%;">
                   <a-row :gutter="16">
                     <a-col :span="8">
-                      <a-input v-model="searchConditions[category.name].name" placeholder="搜索名称" allow-clear @change="filterData(category.name)" />
+                      <a-input v-model="searchConditions[category.name].name" placeholder="搜索名称" allow-clear
+                        @change="filterData(category.name)" />
                     </a-col>
                     <a-col :span="8">
-                      <a-select v-model="searchConditions[category.name].author" placeholder="选择作者" style="width: 100%;" allow-clear @change="filterData(category.name)">
-                        <a-option v-for="author in getUniqueAuthors(category)" :key="author" :value="author">{{ author }}</a-option>
+                      <a-select v-model="searchConditions[category.name].author" placeholder="选择作者" style="width: 100%;"
+                        allow-clear @change="filterData(category.name)">
+                        <a-option v-for="author in getUniqueAuthors(category)" :key="author" :value="author">{{ author
+                          }}</a-option>
                       </a-select>
                     </a-col>
                     <a-col :span="8">
-                      <a-select v-model="searchConditions[category.name].tags" placeholder="选择标签" style="width: 100%;" :filter-option="handleTagFilter" allow-clear @change="handleTagSelect(category.name)" multiple>
+                      <a-select v-model="searchConditions[category.name].tags" placeholder="选择标签" style="width: 100%;"
+                        :filter-option="handleTagFilter" allow-clear @change="handleTagSelect(category.name)" multiple>
                         <a-option v-for="tag in getUniqueTags(category)" :key="tag" :value="tag">{{ tag }}</a-option>
                       </a-select>
                     </a-col>
                   </a-row>
-                  <a-table :columns="columns" :data="filteredData[category.name]" :pagination="{ pageSize, showPageSize: true }" @page-size-change="handlePageSizeChange">
-                    <template #name="{ record }">
-                      <a-popover
-                        position="right"
-                        v-if="record.description"
-                        :content="record.description"
-                        :mouseEnterDelay="0.5"
-                        :mouseLeaveDelay="0.2"
-                      >
-                        <span :ellipsis="{ rows: 1, showTooltip: false }">
-                          {{ record.name }}
-                        </span>
-                      </a-popover>
-                      <span v-else :ellipsis="{ rows: 1, showTooltip: true }">
-                        {{ record.name }}
-                      </span>
-                    </template>
-                    <template #tags="{ record }">
-                      <a-space :style="{
-                        flexWrap: 'wrap',
-                        rowGap: '8px'
-                      }">
-                        <a-tag v-for="tag in record.tags" :key="tag" :color="getTagColor(tag)" style="cursor: pointer" @click="handleTagClick(tag, category.name)">{{ tag }}</a-tag>
-                      </a-space>
-                    </template>
-                    <template #operations="{ record }">
-                      <a-space>
-                        <a-button v-if="category.name !== 'pathing'" type="primary" size="mini" @click="downloadScript(record)">
-                          订阅
-                        </a-button>
-                        <a-button size="mini" @click="showDetails(record)">
-                          详情
-                        </a-button>
-                      </a-space>
-                    </template>
-                  </a-table>
+                  <!-- 大盒子，整体高度 calc(100vh - 200px) -->
+                  <div style="height: calc(100vh - 200px); display: flex; flex-direction: column; flex: 1">
+                    <!-- 表格内容区域，占满剩余空间并启用滚动 -->
+                    <div class="table-scroll-container" style="flex: 1; overflow-y: auto; overflow-x: hidden; padding-left: 16px;">
+                      <!-- 表格内容 -->
+                      <a-table :columns="columns" :data="filteredData[category.name].slice((currentPage - 1) * pageSize, currentPage*pageSize)" :pagination="false"
+                        @page-size-change="handlePageSizeChange" :stickyHeader="true">
+                        <template #name="{ record }">
+                          <a-popover position="right" v-if="record.description" :content="record.description"
+                            :mouseEnterDelay="0.5" :mouseLeaveDelay="0.2">
+                            <span :ellipsis="{ rows: 1, showTooltip: false }">
+                              {{ record.name }}
+                            </span>
+                          </a-popover>
+                          <span v-else :ellipsis="{ rows: 1, showTooltip: true }">
+                            {{ record.name }}
+                          </span>
+                        </template>
+                        <template #tags="{ record }">
+                          <a-space :style="{ flexWrap: 'wrap', rowGap: '8px' }">
+                            <a-tag v-for="tag in record.tags" :key="tag" :color="getTagColor(tag)"
+                              style="cursor: pointer" @click="handleTagClick(tag, category.name)">{{ tag }}</a-tag>
+                          </a-space>
+                        </template>
+                        <template #operations="{ record }">
+                          <a-space>
+                            <a-button v-if="category.name !== 'pathing'" type="primary" size="mini"
+                              @click="downloadScript(record)">
+                              订阅
+                            </a-button>
+                            <a-button size="mini" @click="showDetails(record)">
+                              详情
+                            </a-button>
+                          </a-space>
+                        </template>
+                      </a-table>
+                    </div>
+
+                    <!-- 分页器区域，固定在大盒子底部 -->
+                    <div style="margin-top: 10px;">
+                      <a-pagination v-model:current="currentPage" :total="filteredData[category.name]?.length"
+                        :pageSize="pageSize" :show-page-size="true" @change="handlePageChange" @page-size-change="handlePageSizeChange"
+                        style="display: flex; align-items: center; justify-content: flex-end;" />
+                    </div>
+                  </div>
                 </a-space>
               </a-col>
             </a-row>
@@ -111,13 +113,7 @@
       </a-space>
     </a-layout-content>
 
-    <a-drawer
-      :visible="drawerVisible"
-      @cancel="closeDrawer"
-      @ok="closeDrawer"
-      unmountOnClose
-      :width="480"
-    >
+    <a-drawer :visible="drawerVisible" @cancel="closeDrawer" @ok="closeDrawer" unmountOnClose :width="480">
       <template #title>
         脚本详情
       </template>
@@ -125,13 +121,7 @@
     </a-drawer>
 
     <!-- 添加加载模态框 -->
-    <a-modal
-      :visible="loading"
-      :footer="false"
-      :closable="false"
-      :mask-closable="false"
-      :unmount-on-close="true"
-    >
+    <a-modal :visible="loading" :footer="false" :closable="false" :mask-closable="false" :unmount-on-close="true">
       <div style="text-align: center;">
         <a-spin size="large" />
         <p style="margin-top: 16px;">正在加载仓库数据...</p>
@@ -200,9 +190,9 @@ const filterTreeNodes = (nodes, searchText) => {
     if (newNode.children) {
       newNode.children = filterTreeNodes(newNode.children, searchText);
     }
-    
+
     if (
-        isPinyinMatch(newNode.title, searchText) ||
+      isPinyinMatch(newNode.title, searchText) ||
       (newNode.children && newNode.children.length > 0)
     ) {
       return newNode;
@@ -241,10 +231,26 @@ const loading = ref(false);
 // 添加新的响应式量
 const repoUpdateTime = ref('');
 
+const currentPage = ref(1);
 const pageSize = ref(20);
+
+const handlePageChange = (newPage) => {
+  currentPage.value = newPage;
+
+  const tableContainer = document.querySelector('.table-scroll-container');
+  if (tableContainer) {
+    tableContainer.scrollTop = 0;
+  }
+};
 
 const handlePageSizeChange = (newPageSize) => {
   pageSize.value = newPageSize;
+  currentPage.value = 1;
+
+  const tableContainer = document.querySelector('.table-scroll-container');
+  if (tableContainer) {
+    tableContainer.scrollTop = 0;
+  }
 };
 
 const columns = [
@@ -255,7 +261,7 @@ const columns = [
     ellipsis: true,
     tooltip: false // 关闭默认的 tooltip
   },
-  { title: '作者', dataIndex: 'author', width: 200  },
+  { title: '作者', dataIndex: 'author', width: 200 },
   { title: '版本', dataIndex: 'version', width: 100 },
   { title: '标签', dataIndex: 'tags', slotName: 'tags' },
   { title: '操作', slotName: 'operations' },
@@ -269,9 +275,9 @@ const GetRepoDataFromLocal = async () => {
 
 const fetchRepoData = async () => {
   if (!selectedRepo.value) return;
-  
+
   loading.value = true;
-  
+
   // 清空现有数据
   repoDataRaw.value = [];
   repoUpdateTime.value = '';
@@ -287,7 +293,7 @@ const fetchRepoData = async () => {
   Object.keys(filteredData).forEach(key => {
     filteredData[key] = [];
   });
-  
+
   try {
     let repoInfo;
     if (mode === 'single') {
@@ -296,20 +302,20 @@ const fetchRepoData = async () => {
       const response = await fetch(selectedRepo.value);
       repoInfo = await response.json();
     }
-    
+
     // 从 indexes 中获取数据
     repoDataRaw.value = repoInfo.indexes;
-    
+
     // 解析并设置更新时间
     if (repoInfo.time) {
       repoUpdateTime.value = formatDate(repoInfo.time);
     }
-    
+
     // 为所有节点生成 path
     repoDataRaw.value.forEach(category => generatePaths(category));
-    
+
     initializeSearchConditions();
-    
+
     // 初始化 tagColorMap
     repoDataRaw.value.forEach(category => {
       traverseCategory(category, (item) => {
@@ -334,7 +340,7 @@ const fetchRepoData = async () => {
 const generatePaths = (node, parentPath = '') => {
   const currentPath = parentPath ? `${parentPath}/${node.name}` : node.name;
   node.path = currentPath;
-  
+
   if (node.type === 'directory' && Array.isArray(node.children)) {
     node.children.forEach(child => generatePaths(child, currentPath));
   }
@@ -385,7 +391,7 @@ const getUniqueTags = (category) => {
 const filterData = (categoryName) => {
   const category = repoDataRaw.value.find(cat => cat.name === categoryName);
   const condition = searchConditions[categoryName];
-  
+
   const filtered = [];
   traverseCategory(category, (item) => {
     const nameMatch = !condition.name || isPinyinMatch(item.name, condition.name);
@@ -397,7 +403,7 @@ const filterData = (categoryName) => {
       filtered.push(item);
     }
   });
-  
+
   filteredData[categoryName] = filtered;
 };
 
@@ -492,19 +498,19 @@ const getCategoryTree = (category) => {
     if (node.type === 'file') {
       return null;
     }
-    
+
     // 创建基本树节点
     const treeNode = {
       title: isRoot ? getCategoryDisplayName(node.name) : node.name,
       key: node.path,
       children: Array.isArray(node.children)
         ? node.children
-            .map(child => buildTree(child, false))
-            .filter(Boolean)
+          .map(child => buildTree(child, false))
+          .filter(Boolean)
         : undefined,
       selectable: true
     };
-    
+
     // 只在非本地模式且非根节点时添加图标
     if (!isRoot && mode !== 'single') {
       treeNode.icon = () => h('img', {
@@ -518,10 +524,10 @@ const getCategoryTree = (category) => {
         }
       });
     }
-    
+
     return treeNode;
   };
-  
+
   return [buildTree(category, true)].filter(Boolean);
 };
 
@@ -568,7 +574,7 @@ const getCategoryDisplayName = (name) => {
 };
 
 const onTreeIconClick = (nodeData) => {
-  downloadScript({name: nodeData.title, path: nodeData.key});
+  downloadScript({ name: nodeData.title, path: nodeData.key });
 };
 
 // 修改日期格式化函数
@@ -576,7 +582,7 @@ const formatDate = (timeString) => {
   if (typeof timeString !== 'string' || timeString.length !== 14) {
     return '无效的时间格式';
   }
-  
+
   const year = timeString.slice(0, 4);
   const month = timeString.slice(4, 6);
   const day = timeString.slice(6, 8);
@@ -592,23 +598,23 @@ const getIconUrl = (tag) => {
   const baseIconUrl = "https://raw.githubusercontent.com/babalae/bettergi-scripts-list/refs/heads/main/repo/pathing/";
   const encodedTag = encodeURIComponent(tag);
   const iconPath = `${baseIconUrl}${encodedTag}/icon.ico`;
-  
+
   // 使用当前选中的镜像URL格式
   if (selectedRepo.value && selectedRepo.value !== 'local') {
     const mirrorFormat = selectedRepo.value.split(baseRepo)[0];
     return mirrorFormat + iconPath;
   }
-  
+
   return iconPath;
 };
 
 // 添加一个新的函数来获取前两级节点的 keys
 const getExpandedKeys = (category) => {
   const keys = [];
-  
+
   // 添加根节点
   keys.push(category.path);
-  
+
   // 添加第一级子节点
   // if (Array.isArray(category.children)) {
   //   category.children.forEach(child => {
@@ -617,7 +623,7 @@ const getExpandedKeys = (category) => {
   //     }
   //   });
   // }
-  
+
   return keys;
 };
 
@@ -652,5 +658,9 @@ onMounted(() => {
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
+}
+
+.footer {
+  position: fixed;
 }
 </style>
