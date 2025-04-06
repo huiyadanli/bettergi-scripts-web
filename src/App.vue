@@ -186,18 +186,17 @@ const handleTreeSearch = () => {
 // 添加树节点过滤函数
 const filterTreeNodes = (nodes, searchText) => {
   return nodes.map(node => {
+    const isSelfMatch = isPinyinMatch(node.title, searchText);
+    
+    if (isSelfMatch) {
+      return { ...node };
+    }
+
     const newNode = { ...node };
     if (newNode.children) {
       newNode.children = filterTreeNodes(newNode.children, searchText);
     }
-
-    if (
-      isPinyinMatch(newNode.title, searchText) ||
-      (newNode.children && newNode.children.length > 0)
-    ) {
-      return newNode;
-    }
-    return null;
+    return (newNode.children?.length > 0) ? newNode : null;
   }).filter(Boolean);
 };
 
