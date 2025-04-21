@@ -201,7 +201,8 @@ const filterTreeNodes = (nodes, searchText) => {
 };
 
 // 修改 repoOptions 的定义
-const repoOptions = computed(() => {
+
+/* const repoOptions = computed(() => {
   if (mode === 'single') {
     return [{ label: "BetterGI 本地仓库", value: "local" }];
   } else {
@@ -210,6 +211,27 @@ const repoOptions = computed(() => {
       value: url.replace("{0}", baseRepo)
     }));
   }
+}); */
+
+const repoOptions = computed(() => {
+  // 生成镜像选项列表
+  const mirrorOptions = mirrorUrls.map((url, index) => ({
+    label: index === 0 ? "BetterGI 中央仓库" : `镜像源 ${index}`,
+    value: url.replace("{0}", baseRepo)
+  }));
+
+  // 本地模式追加镜像选项
+  if (mode === 'single') {
+    return [
+      { label: "BetterGI 本地仓库", value: "local" },
+      ...mirrorOptions.map(opt => ({
+        ...opt,
+        label: `在线仓库 ${opt.label}` // 添加前缀区分
+      }))
+    ];
+  }
+
+  return mirrorOptions;
 });
 
 const selectedRepo = ref('');
@@ -295,8 +317,21 @@ const fetchRepoData = async () => {
 
   try {
     let repoInfo;
-    if (mode === 'single') {
+    
+    /* if (mode === 'single') {
       repoInfo = await GetRepoDataFromLocal();
+    } else {
+      const response = await fetch(selectedRepo.value);
+      repoInfo = await response.json();
+    } */
+
+    if (mode === 'single') {
+      if (selectedRepo.value === 'local') { // 根据选择的仓库判断
+        repoInfo = await GetRepoDataFromLocal();
+      } else {
+        const response = await fetch(selectedRepo.value);
+        repoInfo = await response.json();
+      }
     } else {
       const response = await fetch(selectedRepo.value);
       repoInfo = await response.json();
@@ -328,7 +363,7 @@ const fetchRepoData = async () => {
       });
     });
   } catch (error) {
-    Message.error('获取仓库数据失败');
+    Message.error('获取仓库数据失败，请尝试更换仓库');
     console.error('Error fetching repo data:', error);
   } finally {
     loading.value = false;
@@ -452,7 +487,7 @@ const downloadScript = async (script) => {
   // 创建完整的 URL
   const fullUrl = `bettergi://script?import=${base64String}`;
 
-  if (mode === 'single') {
+  /* if (mode === 'single') {
     try {
       await subscribeToLocal(fullUrl);
       // Message.success(`已成功订阅 ${script.name}`);
@@ -468,7 +503,34 @@ const downloadScript = async (script) => {
       console.error('复制到剪贴板失败:', error);
       Message.error(`复制 ${script.name} 的订阅链接失败`);
     });
+  } */
+
+  if (mode === 'single') {
+    if (selectedRepo.value === 'local') {
+      try {
+        await subscribeToLocal(fullUrl);
+      } catch (error) {
+        console.error('订阅失败:', error);
+        Message.error(`订阅失败: ${error.message}`);
+      }
+    } else {
+      copy(fullUrl).then(() => {
+        Message.success(`订阅链接已复制，回到地图追踪页面以继续导入`);
+      }).catch((error) => {
+        console.error('复制到剪贴板失败:', error);
+        Message.error(`复制 ${script.name} 的订阅链接失败`);
+      });
+    }
+  } else {
+    // 将完整的 URL 复制到剪贴板
+    copy(fullUrl).then(() => {
+      Message.success(`已将 ${script.name} 的订阅链接复制到剪贴板`);
+    }).catch((error) => {
+      console.error('复制到剪贴板失败:', error);
+      Message.error(`复制 ${script.name} 的订阅链接失败`);
+    });
   }
+  
 };
 
 const subscribeToLocal = async (url) => {
@@ -510,8 +572,8 @@ const getCategoryTree = (category) => {
       selectable: true
     };
 
-    // 只在非本地模式且非根节点时添加图标
-    if (!isRoot && mode !== 'single') {
+    // 添加图标（原本地无法显示图标）
+    if (!isRoot) {
       treeNode.icon = () => h('img', {
         src: getIconUrl(node.name),
         style: {
@@ -641,10 +703,26 @@ onMounted(() => {
   padding: 16px;
 }
 
+:deep(.arco-tree-node) {
+  position: relative;
+  padding-right: 80px !important; /* 给按钮留出空间 */
+}
+
 /* 添加图标相关样式 */
 :deep(.arco-tree-node-title) {
   display: flex;
   align-items: center;
+  width: calc(100% - 60px); /* 留出按钮空间 */
+  min-width: 0; /* 允许文本截断 */
+}
+
+:deep(.arco-tree-node-title-text) {
+  white-space: normal !important;
+  word-break: break-word;
+  line-height: 1.5;
+  max-width: 100%;
+  flex: 1;
+  margin-right: 4px; /* 与按钮间距 */
 }
 
 :deep(.arco-tree-node-icon) {
