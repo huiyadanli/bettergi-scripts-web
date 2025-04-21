@@ -325,8 +325,13 @@ const fetchRepoData = async () => {
       repoInfo = await response.json();
     } */
 
-    if (selectedRepo.value === 'local') { // 根据选择的仓库判断
-      repoInfo = await GetRepoDataFromLocal();
+    if (mode === 'single') {
+      if (selectedRepo.value === 'local') { // 根据选择的仓库判断
+        repoInfo = await GetRepoDataFromLocal();
+      } else {
+        const response = await fetch(selectedRepo.value);
+        repoInfo = await response.json();
+      }
     } else {
       const response = await fetch(selectedRepo.value);
       repoInfo = await response.json();
@@ -500,18 +505,32 @@ const downloadScript = async (script) => {
     });
   } */
 
-  if (selectedRepo.value === 'local') {
-    try {
-      await subscribeToLocal(fullUrl);
-    } catch (error) {
-      console.error('订阅失败:', error);
-      Message.error(`订阅失败: ${error.message}`);
+  if (mode === 'single') {
+    if (selectedRepo.value === 'local') {
+      try {
+        await subscribeToLocal(fullUrl);
+      } catch (error) {
+        console.error('订阅失败:', error);
+        Message.error(`订阅失败: ${error.message}`);
+      }
+    } else {
+      copy(fullUrl).then(() => {
+        Message.success(`订阅链接已复制，回到地图追踪页面以继续导入`);
+      }).catch((error) => {
+        console.error('复制到剪贴板失败:', error);
+        Message.error(`复制 ${script.name} 的订阅链接失败`);
+      });
     }
   } else {
+    // 将完整的 URL 复制到剪贴板
     copy(fullUrl).then(() => {
-      Message.success(`订阅链接已复制，回到地图追踪页面以继续导入`);
+      Message.success(`已将 ${script.name} 的订阅链接复制到剪贴板`);
+    }).catch((error) => {
+      console.error('复制到剪贴板失败:', error);
+      Message.error(`复制 ${script.name} 的订阅链接失败`);
     });
   }
+  
 };
 
 const subscribeToLocal = async (url) => {
