@@ -40,19 +40,25 @@
 
                 <a-space direction="vertical" size="medium" style="width: 100%;">
                   <a-row :gutter="16">
-                    <a-col :span="8">
+                    <a-col :span="6">
                       <a-input v-model="searchConditions[category.name].name" placeholder="搜索名称" allow-clear
                         @change="filterData(category.name)" />
                     </a-col>
-                    <a-col :span="8">
+                    <a-col :span="6">
                       <a-select v-model="searchConditions[category.name].author" placeholder="选择作者" style="width: 100%;"
                         allow-clear @change="filterData(category.name)">
                         <a-option v-for="author in getUniqueAuthors(category)" :key="author" :value="author">{{ author
                           }}</a-option>
                       </a-select>
                     </a-col>
-                    <a-col :span="8">
+                    <a-col :span="6">
                       <a-select v-model="searchConditions[category.name].tags" placeholder="选择标签" style="width: 100%;"
+                        :filter-option="handleTagFilter" allow-clear @change="handleTagSelect(category.name)" multiple>
+                        <a-option v-for="tag in getUniqueTags(category)" :key="tag" :value="tag">{{ tag }}</a-option>
+                      </a-select>
+                    </a-col>
+                    <a-col :span="6">
+                      <a-select v-model="searchConditions[category.name].etags" placeholder="排除标签" style="width: 100%;"
                         :filter-option="handleTagFilter" allow-clear @change="handleTagSelect(category.name)" multiple>
                         <a-option v-for="tag in getUniqueTags(category)" :key="tag" :value="tag">{{ tag }}</a-option>
                       </a-select>
@@ -79,7 +85,7 @@
                         <template #tags="{ record }">
                           <a-space :style="{ flexWrap: 'wrap', rowGap: '8px' }">
                             <a-tag v-for="tag in record.tags" :key="tag" :color="getTagColor(tag)"
-                              style="cursor: pointer" @click="handleTagClick(tag, category.name)">{{ tag }}</a-tag>
+                              style="cursor: pointer" @click="handleTagClick(tag, category.name)" @contextmenu.prevent="handleTagRightClick(tag, category.name)">{{ tag }}</a-tag>
                           </a-space>
                         </template>
                         <template #operations="{ record }">
@@ -286,6 +292,7 @@ const fetchRepoData = async () => {
       name: '',
       author: '',
       tags: [],
+      etags: [],
       path: ''
     };
   });
@@ -393,12 +400,20 @@ const filterData = (categoryName) => {
 
   const filtered = [];
   traverseCategory(category, (item) => {
+    // 名称匹配：如果条件为空或项名称满足拼音匹配则认为匹配
     const nameMatch = !condition.name || isPinyinMatch(item.name, condition.name);
+    // 作者匹配：如果条件为空或项作者与条件一致则认为匹配
     const authorMatch = !condition.author || item.author === condition.author;
-    // 修改标签匹配逻辑
+    // 标签匹配：如果 condition.tags 为空或者 item.tags 包含条件中的所有标签，则认为匹配
     const tagMatch = condition.tags.length === 0 || (Array.isArray(item.tags) && condition.tags.every(tag => item.tags.includes(tag)));
+    // 排除标签匹配：如果 condition.etags 有内容，则要求 item.tags 不包含其中任一标签
+    const etagMatch = condition.etags.length === 0 || (Array.isArray(item.tags) && condition.etags.every(excludeTag => !item.tags.includes(excludeTag)));
+    // 路径匹配：满足条件时 item.path 存在且以指定条件开头，但不完全等于该条件
     const pathMatch = !condition.path || (item.path && item.path.startsWith(condition.path) && item.path !== condition.path);
-    if (nameMatch && authorMatch && tagMatch && pathMatch && (item.type === 'file' || (category.name === 'js' && item.type === 'directory'))) {
+
+    // 当各条件均满足，且类型为 'file' 或（如果当前分类为 'js' 则允许 'directory'）时，将该项加入过滤结果
+    if (nameMatch && authorMatch && tagMatch && etagMatch && pathMatch &&
+        (item.type === 'file' || (category.name === 'js' && item.type === 'directory'))) {
       filtered.push(item);
     }
   });
@@ -406,12 +421,14 @@ const filterData = (categoryName) => {
   filteredData[categoryName] = filtered;
 };
 
+
 const initializeSearchConditions = () => {
   repoDataRaw.value.forEach(category => {
     searchConditions[category.name] = {
       name: '',
       author: '',
       tags: [],
+      etags: [],
       path: ''
     };
     filteredData[category.name] = [];
@@ -549,6 +566,15 @@ const handleTagClick = (tag, categoryName) => {
     searchConditions[categoryName].tags.push(tag);
   } else {
     searchConditions[categoryName].tags = searchConditions[categoryName].tags.filter(t => t !== tag);
+  }
+  filterData(categoryName);
+}
+
+const handleTagRightClick = (tag, categoryName) => {
+  if (!searchConditions[categoryName].etags.includes(tag)) {
+    searchConditions[categoryName].etags.push(tag);
+  } else {
+    searchConditions[categoryName].etags = searchConditions[categoryName].etags.filter(t => t !== tag);
   }
   filterData(categoryName);
 }
