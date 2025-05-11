@@ -291,6 +291,7 @@ const columns = [
   { title: '作者', dataIndex: 'author', width: 200 },
   { title: '版本', dataIndex: 'version', width: 100 },
   { title: '标签', dataIndex: 'tags', slotName: 'tags' },
+  { title: '最后更新', dataIndex: 'lastUpdated', width: 250 },
   { title: '操作', slotName: 'operations' },
 ];
 
@@ -563,6 +564,7 @@ const showDetails = (script) => {
     { label: '描述', value: script.description || '无描述' },
     { label: '标签', value: script.tags },
     { label: 'Hash', value: script.hash },
+    { label: '最后更新', value: script.lastUpdated || '未知' },
   ];
   drawerVisible.value = true;
 };
