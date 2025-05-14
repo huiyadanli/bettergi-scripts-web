@@ -591,8 +591,8 @@ const getCategoryTree = (category) => {
       selectable: true
     };
 
-    // 添加图标（原本地无法显示图标）
-    if (!isRoot) {
+    // 添加图标（仅网页端显示图标，逻辑有需要再修改）
+    if (mode !== 'single') {
       treeNode.icon = () => h('img', {
         src: getIconUrl(node.name),
         style: {
@@ -607,7 +607,6 @@ const getCategoryTree = (category) => {
 
     return treeNode;
   };
-
   return [buildTree(category, true)].filter(Boolean);
 };
 
