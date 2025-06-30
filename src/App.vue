@@ -82,6 +82,19 @@
                             {{ record.name }}
                           </span>
                         </template>
+                        <template #author="{ record }">
+                          <div v-if="getAuthorsList(record).length > 0">
+                            <a-space :style="{ flexWrap: 'wrap', rowGap: '4px' }" size="mini">
+                              <a-tag v-for="(author, index) in getAuthorsList(record)" :key="index" color="blue" size="small">
+                                <a v-if="author.link" :href="author.link" target="_blank" style="color: inherit; text-decoration: none;">
+                                  {{ author.name || author }}
+                                </a>
+                                <span v-else>{{ author.name || author }}</span>
+                              </a-tag>
+                            </a-space>
+                          </div>
+                          <span v-else>{{ getAuthorDisplay(record) }}</span>
+                        </template>
                         <template #tags="{ record }">
                           <a-space :style="{ flexWrap: 'wrap', rowGap: '8px' }">
                             <a-tag v-for="tag in record.tags" :key="tag" :color="getTagColor(tag)"
@@ -288,7 +301,7 @@ const columns = [
     ellipsis: true,
     tooltip: false // 关闭默认的 tooltip
   },
-  { title: '作者', dataIndex: 'author', width: 200 },
+  { title: '作者', dataIndex: 'author', slotName: 'author', width: 200 },
   { title: '版本', dataIndex: 'version', width: 100 },
   { title: '标签', dataIndex: 'tags', slotName: 'tags' },
   { title: '最后更新', dataIndex: 'lastUpdated', width: 250 },
@@ -305,6 +318,7 @@ const fetchRepoData = async () => {
   if (!selectedRepo.value) return;
 
   loading.value = true;
+  console.log("开始请求仓库数据:", selectedRepo.value);
 
   // 清空现有数据
   repoDataRaw.value = [];
@@ -332,7 +346,7 @@ const fetchRepoData = async () => {
       const response = await fetch(selectedRepo.value);
       repoInfo = await response.json();
     } */
-
+    
     if (mode === 'single') {
       if (selectedRepo.value === 'local') { // 根据选择的仓库判断
         repoInfo = await GetRepoDataFromLocal();
@@ -344,7 +358,7 @@ const fetchRepoData = async () => {
       const response = await fetch(selectedRepo.value);
       repoInfo = await response.json();
     }
-
+    
     // 从 indexes 中获取数据
     repoDataRaw.value = repoInfo.indexes;
 
@@ -415,7 +429,20 @@ const traverseCategory = (category, callback) => {
 const getUniqueAuthors = (category) => {
   const authors = new Set();
   traverseCategory(category, (item) => {
-    if (item.author) authors.add(item.author);
+    // 获取所有作者
+    const allAuthors = getAuthorsList(item);
+    allAuthors.forEach(author => {
+      if (typeof author === 'object' && author.name) {
+        authors.add(author.name);
+      } else if (typeof author === 'string') {
+        authors.add(author);
+      }
+    });
+    
+    // 处理字符串类型的 author 字段（向后兼容）
+    if (typeof item.author === 'string') {
+      authors.add(item.author);
+    }
   });
   return [...authors];
 };
@@ -433,13 +460,31 @@ const getUniqueTags = (category) => {
 const filterData = (categoryName) => {
   const category = repoDataRaw.value.find(cat => cat.name === categoryName);
   const condition = searchConditions[categoryName];
-
   const filtered = [];
   traverseCategory(category, (item) => {
     // 名称匹配：如果条件为空或项名称满足拼音匹配则认为匹配
     const nameMatch = !condition.name || isPinyinMatch(item.name, condition.name);
-    // 作者匹配：如果条件为空或项作者与条件一致则认为匹配
-    const authorMatch = !condition.author || item.author === condition.author;
+    
+    // 作者匹配：支持 authors 和 author 字段
+    let authorMatch = !condition.author;
+    if (condition.author) {
+      const allAuthors = getAuthorsList(item);
+      if (allAuthors.length > 0) {
+        // 检查 authors 字段
+        authorMatch = allAuthors.some(author => {
+          if (typeof author === 'object' && author.name) {
+            return author.name === condition.author;
+          } else if (typeof author === 'string') {
+            return author === condition.author;
+          }
+          return false;
+        });
+      } else if (typeof item.author === 'string') {
+        // 检查字符串类型的 author 字段（向后兼容）
+        authorMatch = item.author === condition.author;
+      }
+    }
+    
     // 标签匹配：如果 condition.tags 为空或者 item.tags 包含条件中的所有标签，则认为匹配
     const tagMatch = condition.tags.length === 0 || (Array.isArray(item.tags) && condition.tags.every(tag => item.tags.includes(tag)));
     // 排除标签匹配：如果 condition.etags 有内容，则要求 item.tags 不包含其中任一标签
@@ -493,6 +538,34 @@ const getTagColor = (tag) => {
 };
 
 const { copy } = useClipboard();
+
+// 辅助函数：获取作者列表（优先使用 authors 字段，兼容 author 字段）
+const getAuthorsList = (item) => {
+  if (Array.isArray(item.authors)) {
+    return item.authors;
+  } else if (Array.isArray(item.author)) {
+    return item.author;
+  }
+  return [];
+};
+
+// 辅助函数：获取作者显示文本
+const getAuthorDisplay = (item) => {
+  const authorsList = getAuthorsList(item);
+  if (authorsList.length > 0) {
+    return authorsList.map(author => {
+      if (typeof author === 'object' && author.name) {
+        return author.name;
+      } else if (typeof author === 'string') {
+        return author;
+      }
+      return '未知作者';
+    }).join(', ');
+  } else if (typeof item.author === 'string') {
+    return item.author;
+  }
+  return '未知作者';
+};
 
 const downloadScript = async (script) => {
   // 创建一个包含脚本路径的数组
@@ -557,9 +630,12 @@ const subscribeToLocal = async (url) => {
 };
 
 const showDetails = (script) => {
+  // 处理作者显示
+  const authorDisplay = getAuthorDisplay(script);
+
   drawerData.value = [
     { label: '名称', value: script.name },
-    { label: '作者', value: script.author },
+    { label: '作者', value: authorDisplay },
     { label: '版本', value: script.version },
     { label: '描述', value: script.description || '无描述' },
     { label: '标签', value: script.tags },
